@@ -15,7 +15,9 @@ public class MLP implements Serializable {
 
     private Random random;
 
-    public MLP(int inputNr, int hiddenNr, int outputNr, double alpha, int batchSize) {
+    public MLP(int inputNr, int hiddenNr, int outputNr, double alpha, int batchSize, long randSeed) {
+        random = new Random(randSeed);
+        np.setSeed(randSeed);
         inputHiddenWeights = np.random(hiddenNr, inputNr);
         hiddenOutputWeights = np.random(outputNr,hiddenNr);
         hiddenBias = new double[hiddenNr][batchSize];
@@ -23,8 +25,6 @@ public class MLP implements Serializable {
 
         this.alpha = alpha;
         this.batchSize = batchSize;
-
-        random = new Random();
     }
 
     public void updateMLP(double in[][], double out[][]){
@@ -62,7 +62,7 @@ public class MLP implements Serializable {
         double A1[][] = np.sigmoid(Z1);
 
         double Z2[][] = np.add(np.dot(hiddenOutputWeights,A1),outputBias);
-        double A2[][] = Z2;
+        double A2[][] = np.reLu(Z2);
 
         this.cost = np.cross_entropy(batchSize, output, A2);
 
@@ -100,7 +100,7 @@ public class MLP implements Serializable {
         double A1[][] = np.sigmoid(Z1);
 
         double Z2[][] = np.add(np.dot(hiddenOutputWeights,A1),outputBias);
-        double A2[][] = Z2; //Making the final output linear instead of sigmoid.
+        double A2[][] = np.reLu(Z2); //Making the final output linear instead of sigmoid.
 
         return A2;
     }
@@ -513,6 +513,19 @@ class np {
             }
         }
         return sum;
+    }
+
+    public static double[][] reLu(double[][] a){
+        int m = a.length;
+        int n = a[0].length;
+        double[][] z = new double[m][n];
+
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                z[i][j] = (a[i][j]>1?a[i][j]:0);
+            }
+        }
+        return z;
     }
 
 

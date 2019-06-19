@@ -43,7 +43,7 @@ public class DijkstraShortestPath extends PathFinder implements Serializable {
      * findPath() will primarily fill in the cost values for cost[][]. Ideally it keeps track of the optimal actions while
      * filling in the entries of cost[][], but I have not found a way to efficiently do this.
      */
-    public void findPath(){
+    public void findPath() throws ArithmeticException{
 
         PriorityQueue<Node> st = new PriorityQueue<>(1,new NodeComparator());
         int agentX=agent.getX();

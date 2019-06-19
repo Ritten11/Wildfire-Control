@@ -47,6 +47,7 @@ public class SubGoal implements Serializable {
             path = pf.getPath();
             moveCost = pf.getFinalMoveCost();
         } catch (Exception e){
+            System.out.println("Path failed");
             moveCost = Double.MAX_VALUE;
         }
     }

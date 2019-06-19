@@ -290,12 +290,18 @@ public class OrthogonalSubGoals implements Serializable {
     /**
      * function used to check whether a agent is able to reach the subGoal
      * @param key: The goal which needs to be checked
-     * @param a: The agent that is supposed to reach the goal.
+     * @param agentList: The agents that are supposed to reach the goal.
      * @return
      */
-    public boolean checkSubGoal(String key, Agent a){
-        SubGoal goal = new SubGoal(cells, subGoals.get(key), algorithm, a, false);
-        return goal.pathExists();
+    public boolean checkSubGoal(String key, List<Agent> agentList){
+        for (Agent a: agentList){
+            SubGoal goal = new SubGoal(cells, subGoals.get(key), algorithm, a, false);
+            if (!goal.pathExists()){
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

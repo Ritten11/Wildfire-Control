@@ -21,9 +21,11 @@ import java.util.stream.Stream;
 
 
 public class DeepQLearner implements RLController, Serializable {
-    protected int iter = 10;
+    private static int iter=0;
+    private static int nrErrors = 0;
+    protected int iterations = 1000;
     protected float explorationRate = 0.00f;
-    protected float exploreDiscount = explorationRate/iter;
+    protected float exploreDiscount = explorationRate/ iterations;
     protected float gamma = 0.99f;
     protected float alpha = 0.001f;
 
@@ -45,8 +47,8 @@ public class DeepQLearner implements RLController, Serializable {
     private Simulation model;
 
     //Variables needed for debugging:
-    final static boolean use_gui = true;
-    final static boolean debugging = true;
+    final static boolean use_gui = false;
+    final static boolean debugging = false;
     private final static int timeActionShown = 0;
     private int showActionFor;
     private long randSeed = 7;
@@ -68,6 +70,7 @@ public class DeepQLearner implements RLController, Serializable {
     private Fitness fit;
     private Features f;
     private int lowestCost;
+    private int[] costArr;
 
     private HashSet<String> assignedGoals;
 
@@ -97,35 +100,52 @@ public class DeepQLearner implements RLController, Serializable {
         f = new Features();
         fit = new Fitness();
         lowestCost = Integer.MAX_VALUE;
+        costArr = new int[iterations];
 
         initNN();
 
-        for (int i = 0; i< iter; i++){
+        if (!debugging){
+            randSeed=new Random().nextLong();
+        }
+
+        for ( iter = 0; iter< iterations; iter++){
             showActionFor = timeActionShown;
-            trainMLP(i);
+            trainMLP();
+            costArr[iter]=getCost();
             if (explorationRate>0){
                 explorationRate-= exploreDiscount;
             }
-            if (!debugging){
-                randSeed++;
+        }
+
+        System.out.println("Average cost over 100 runs:");
+        double avCost=0;
+        for (int i = 0; i< iterations; i++){
+            avCost+=((double)costArr[i])/100;
+            if ((i+1)%100==0){
+                System.out.println("At iterations #" + i + " avCost: " + avCost);
+                avCost=0;
             }
+        }
+
+        if (nrErrors!=0){
+            System.out.println("Total # of errors occurred: " + nrErrors);
         }
 
     }
 
-    private void trainMLP(int i){
+    private void trainMLP(){
         model = new Simulation(this, use_gui);
-
+        backup = model.getAgents().get(0);
         assignedGoals = new HashSet<>();
+
+        double fireLocation[] = f.locationCenterFireAndMinMax(model);
+        subGoals = new OrthogonalSubGoals((int)fireLocation[0],(int)fireLocation[1], distMap, algorithm, model.getAllCells());
 
         JFrame frame;
         if(use_gui){
             frame = createMainFrame();
 
         }
-
-        double fireLocation[] = f.locationCenterFireAndMinMax(model);
-        subGoals = new OrthogonalSubGoals((int)fireLocation[0],(int)fireLocation[1], distMap, algorithm, model.getAllCells());
 
         for (Agent a:model.getAgents()){
 //            if (debugging){
@@ -163,7 +183,7 @@ public class DeepQLearner implements RLController, Serializable {
 
         if (cost<lowestCost){
             lowestCost = cost;
-            System.out.println("In iteration: " + i + " a solution was found with cost: " + lowestCost);
+            System.out.println("In iteration: " + iter + " a solution was found with cost: " + lowestCost);
             takeScreenShot();
         }
 
@@ -361,12 +381,15 @@ public class DeepQLearner implements RLController, Serializable {
             do {
                 subGoals.updateSubGoal(key, activationList.get(i).index);
                 i++;
+                if (i>=activationList.size()){
+                    resetSimulation();
+                }
 
-            } while (!subGoals.checkSubGoal(key, model.getAgents().get(0))); //TODO: Again, only possible in single agent environment.
+            } while (!subGoals.checkSubGoal(key, model.getAgents())); //TODO: Again, only possible in single agent environment.
         } else {
             do {
                 subGoals.updateSubGoal(key, randomLocation());
-            } while (!subGoals.checkSubGoal(key, model.getAgents().get(0))); //TODO: Again, only possible in single agent environment.
+            } while (!subGoals.checkSubGoal(key, model.getAgents())); //TODO: Again, only possible in single agent environment.
         }
         //TODO: goalToCostMap
         if (use_gui && (debugging)) {
@@ -460,6 +483,12 @@ public class DeepQLearner implements RLController, Serializable {
         if (debugging){
             System.out.println("# of goals hit: " + model.goalsHit);
         }
+    }
+
+    private void resetSimulation(){
+        System.out.println("UNEXPECTED ERROR OCCURRED, DISCARDING CURRENT MODEL AND STARTING NEW");
+        nrErrors++;
+        trainMLP();
     }
 
     /**

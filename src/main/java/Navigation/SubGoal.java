@@ -59,10 +59,11 @@ public class SubGoal implements Serializable {
 
     public String getNextAction() {
         if (path == null){
-            return "Do Nothing";
+            System.out.println("Path to subGoal no longer exists");
+            return "PathFailed";
         }
         if (path.empty()){
-            //System.out.println("Path to subGoal is empty");
+            System.out.println("Path to subGoal is empty");
             return "Do Nothing";
         }
         Element e = path.peek();
@@ -77,6 +78,10 @@ public class SubGoal implements Serializable {
             } else if (dy==0) {
                 //TODO: This is an ad-hoc solution for making the agent dig a path instead of only walking over it.
                 // Works for now, should be changed in a more robust function.
+                if (cells.get(e.getX()).get(e.getY()).getType().equals("Dirt")){//If the agent is already on dirt, simply skip this step
+                    path.pop();
+                    return getNextAction();
+                }
                 action = "Dig";
             }
         } else if (dx==1){

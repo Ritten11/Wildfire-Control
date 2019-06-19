@@ -142,6 +142,7 @@ public class Agent implements Serializable{
             case "Go Left":
                 return tryLeft();
             default:
+                System.out.println("Action not found");
                 return false;
         }
     }

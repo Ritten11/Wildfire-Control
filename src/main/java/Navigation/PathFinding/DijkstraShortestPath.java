@@ -49,6 +49,12 @@ public class DijkstraShortestPath extends PathFinder implements Serializable {
         int agentX=agent.getX();
         int agentY=agent.getY();
 
+        if (cells.get(agentX).get(agentY).equals(goal)){
+            path = new Stack<>();
+            System.out.println("Already on goal. Returning empty path");
+            return;
+        }
+
         st.add(new Node(cells.get(agentX).get(agentY),0,null));
 
         cost[agentX][agentY]=0;
@@ -163,7 +169,6 @@ public class DijkstraShortestPath extends PathFinder implements Serializable {
         if (cutPath && (cellAgent.getType().equals("Grass") || cellAgent.getType().equals("Tree"))) {
             path.push(cellAgent);
         }
-        //System.out.println("Returned to original location");
         this.path = path;
     }
 

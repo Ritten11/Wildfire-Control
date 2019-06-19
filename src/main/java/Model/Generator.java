@@ -278,6 +278,7 @@ class Generator implements Serializable {
         // Fire should always start in the center
         if (!cells.get(width/2).get(height/2).isBurnable()){
             randomMap();
+            return;
         } else {
             cells.get(width/2).get(height/2).setBurning();
         }

@@ -3,12 +3,6 @@ package Learning;
 import Model.Agent;
 import Model.Elements.Element;
 import Model.Simulation;
-import burlap.mdp.core.state.MutableState;
-import burlap.mdp.core.state.StateUtilities;
-import burlap.mdp.core.state.UnknownKeyException;
-import burlap.mdp.core.state.annotations.DeepCopyState;
-import cern.colt.list.adapter.ObjectListAdapter;
-import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -19,7 +13,6 @@ import java.util.stream.Stream;
 
 import java.lang.Math;
 
-@DeepCopyState
 public class Features implements Serializable {
 
     public double previousAction = -1;
@@ -613,8 +606,11 @@ public class Features implements Serializable {
         return output;
     }
 
-    public double[] appendArrays(double[] arr, double val){
-        double[] valArr = {val};
+    public double[] appendDoubles(double[] arr, double... val){
+        double[] valArr = new double[val.length];
+        for (int i = 0; i<val.length; i++){
+            valArr[i]=val[i];
+        }
         return appendArrays(arr, valArr);
 
     }
@@ -772,6 +768,10 @@ public class Features implements Serializable {
 
     public double[] cornerVectors(Simulation model, boolean use_octagon){
         return cornerVectors(model, model.getAgents().get(0), use_octagon);
+    }
+
+    public int numberSubGoalsHit(Simulation model){
+        return model.goalsHit;
     }
 
 }

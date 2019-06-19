@@ -106,6 +106,9 @@ public class DeepQLearner implements RLController, Serializable {
             if (explorationRate>0){
                 explorationRate-= exploreDiscount;
             }
+            if (!debugging){
+                randSeed++;
+            }
         }
 
     }
@@ -121,17 +124,13 @@ public class DeepQLearner implements RLController, Serializable {
 
         }
 
-        if (debugging){
-            System.out.println("number of agents: " + model.getAgents().size() + ". XY of first agent: " + model.getAgents().get(0).getX() + model.getAgents().get(0).getY());
-        }
-
         double fireLocation[] = f.locationCenterFireAndMinMax(model);
         subGoals = new OrthogonalSubGoals((int)fireLocation[0],(int)fireLocation[1], distMap, algorithm, model.getAllCells());
 
         for (Agent a:model.getAgents()){
-            if (debugging){
-                System.out.println("assigning goal to agent: " + a.getId());
-            }
+//            if (debugging){
+//                System.out.println("assigning goal to agent: " + a.getId());
+//            }
             updateDistMap(a);
             subGoals.selectClosestSubGoal(a);
         }
@@ -160,9 +159,6 @@ public class DeepQLearner implements RLController, Serializable {
 
         if (model.getAgents().isEmpty()){ //TODO: Again, should really try to come up with better solution.
             model.getAgents().add(backup);
-            if(debugging){
-                System.out.println("Nr of Agents: " + model.getAgents().size());
-            }
         }
 
         if (cost<lowestCost){
@@ -180,7 +176,7 @@ public class DeepQLearner implements RLController, Serializable {
 
         }
 
-        if (use_gui && !(debugging)){
+        if (use_gui){
             disposeMainFrame(frame);
         }
     }
@@ -189,10 +185,9 @@ public class DeepQLearner implements RLController, Serializable {
 
         double[] oldValue = getQ(oldState);
 
-        System.out.println(Arrays.toString(oldState)+" -> " +Arrays.toString(oldValue));
+//        System.out.println(Arrays.toString(oldState)+" -> " +Arrays.toString(oldValue));
 
         double[] newValue = getQ(newState);
-//        int actionInt = (action.equals("FORWARD")? 0 :1);
 
         oldValue[action] = reward + gamma* minValue(newValue);
 
@@ -206,38 +201,38 @@ public class DeepQLearner implements RLController, Serializable {
 
         if (batchNr%batchSize==0){
             System.out.println("Updating MLP");
-            if (debugging){
-                System.out.println("For action: " + action);
-            }
+//            if (debugging){
+//                System.out.println("For action: " + action);
+//            }
             batchNr = 0;
             mlp.updateMLP(inputBatch, outputBatch);
         }
 
         oldValue = getQ(oldState);
-        System.out.println(Arrays.toString(oldState)+" -> "+Arrays.toString(oldValue));
+//        System.out.println(Arrays.toString(oldState)+" -> "+Arrays.toString(oldValue));
     }
 
     private void updateDistMap(String key, Agent agent){
 
         if (!(subGoals.isGoalOfAgent(key)||assignedGoals.contains(key))) {
-            if (debugging) {
-                System.out.println("updating goal " + key + " for agent #" + agent.getId());
-            }
+//            if (debugging) {
+//                System.out.println("updating goal " + key + " for agent #" + agent.getId());
+//            }
             double[] input = getInputSet(key, agent);
 
             setDistance(input, key);
-
-            System.out.println(key + " " + goalToCostMap.keySet().contains(key) + " size map: " + goalToCostMap.keySet().size());
+//
+//            System.out.println(key + " " + goalToCostMap.keySet().contains(key) + " size map: " + goalToCostMap.keySet().size());
             goalToCostMap.get(key).setInput(input);
-                double[] in = goalToCostMap.get(key).input;
+//                double[] in = goalToCostMap.get(key).input;
 //                if (debugging) {
 //                    System.out.println("Input changed to " + Arrays.toString(goalToCostMap.get(key).input) + " from " + Arrays.toString(in));
 //                }
 
         } else {
-            if (debugging) {
-                System.out.println("Not updating goal already assigned to/reached by other agent");
-            }
+//            if (debugging) {
+//                System.out.println("Not updating goal already assigned to/reached by other agent -> ");
+//            }
         }
     }
 
@@ -249,29 +244,38 @@ public class DeepQLearner implements RLController, Serializable {
 
     @Override
     public void pickAction(Agent a) {
-        if (a.onGoal()){
-            assignedGoals.add(subGoals.getAgentGoals().get(a));
-            updateDistMap(subGoals.getNextGoal(a), a);
-            subGoals.setNextGoal(a);
-            //goalsHit++;//TODO: TRIGGER REWARD FUNCTION
-        }
-        String nextAction = a.subGoal.getNextAction();
-        a.takeAction(nextAction);
-
-        // TODO: This piece of code is ugly as hell, come up with better solution
-        if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()){
-            //subGoals.removeGoalReached(subGoals.getAgentGoals().get(a));
-            backup = a;
-            if(debugging){
-                System.out.println("Nr of Agents: " + model.getAgents().size());
+        if (model.goalsHit<distMap.keySet().size()) {
+            if (a.onGoal()) {
+                assignedGoals.add(subGoals.getAgentGoals().get(a));
+                updateDistMap(subGoals.getNextGoal(a), a);
+                subGoals.setNextGoal(a);
+                updateGoalsHit();
             }
-        }
-
-        if (use_gui){
-            if (showActionFor>0) {
-                sleep(showActionFor);
-                showActionFor -=1;
+            String nextAction = a.subGoal.getNextAction();
+            if (nextAction.equals("PathFailed")){
+                subGoals.resetGoal(a);
+                pickAction(a);
+                return;
+            } else {
+                a.takeAction(nextAction);
             }
+            // TODO: This piece of code is ugly as hell, come up with better solution
+            if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
+                subGoals.removeGoalReached(subGoals.getAgentGoals().get(a));
+                backup = a;
+                if (debugging) {
+                    System.out.println("Nr of Agents: " + model.getAgents().size());
+                }
+            }
+
+            if (use_gui) {
+                if (showActionFor > 0) {
+                    sleep(showActionFor);
+                    showActionFor -= 0;
+                }
+            }
+        } else { //Once all goals have been reached, the agent should stop moving as there is no use for it anymore.
+            a.takeAction("Do Nothing");
         }
 
         // TODO: Check if other RL techniques have similar kill command
@@ -396,7 +400,8 @@ public class DeepQLearner implements RLController, Serializable {
     private double[] getInputSet(String subGoal, Agent a){
         float windX = model.getParameters().get("Wind x");
         float windY = model.getParameters().get("Wind y");
-        double[] set = f.appendArrays(f.cornerVectors(model, a, false), f.windRelativeToSubgoal(windX, windY, subGoal));
+        float windS = model.getParameters().get("Wind Speed");
+        double[] set = f.appendDoubles(f.cornerVectors(model, a, false), (f.windRelativeToSubgoal(windX, windY, subGoal)*windS), f.numberSubGoalsHit(model));
         //double[] set = new double[]{f.windRelativeToSubgoal(windX, windY, subGoal)};
         return set;
     }
@@ -428,7 +433,7 @@ public class DeepQLearner implements RLController, Serializable {
 
     protected void disposeMainFrame(JFrame f){
         sleep(500);
-        f.dispose();
+        //f.dispose();
     }
 
     protected void sleep(int t){
@@ -447,6 +452,13 @@ public class DeepQLearner implements RLController, Serializable {
 
         }catch (Exception ex) {
             System.out.println(ex.getMessage());
+        }
+    }
+
+    private void updateGoalsHit(){
+        model.goalsHit = subGoals.getGoalsReached().size();
+        if (debugging){
+            System.out.println("# of goals hit: " + model.goalsHit);
         }
     }
 

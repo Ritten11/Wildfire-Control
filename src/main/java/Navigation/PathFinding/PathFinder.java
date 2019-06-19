@@ -24,11 +24,13 @@ public abstract class PathFinder {
     abstract public Stack<Element> getPath();
     abstract public void findPath() throws ArithmeticException;
     public double getFinalMoveCost(){
-        if (!path.empty()) {
-            return finalMoveCost;
-
-        } else {
+        if (path == null){
             System.out.println("The path you tried to access does not exists!");
+            return Double.MAX_VALUE;
+        } else if (!path.empty()) {
+            return finalMoveCost;
+        } else {
+            System.out.println("This path is empty....");
             return Double.MAX_VALUE;
         }
     }

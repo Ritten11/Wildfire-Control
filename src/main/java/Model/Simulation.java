@@ -68,8 +68,8 @@ public class Simulation extends Observable implements Serializable, Observer {
 		this.use_gui = use_gui;
 
 		// Randomization initialization
-		// Random seed_gen = new Random();
-		// randomizer_seed = seed_gen.nextLong();
+		Random seed_gen = new Random();
+		randomizer_seed = seed_gen.nextLong();
 		rand = new Random(randomizer_seed);
 		states = new ArrayList<>();
 
@@ -82,6 +82,10 @@ public class Simulation extends Observable implements Serializable, Observer {
 
 		// Generate a new map to start on
 		if (generateRandom) {
+			float[] windVec = generateNormalizedVector();
+			parameter_manager.changeParameter("Model", "Wind x", windVec[0]);
+			parameter_manager.changeParameter("Model", "Wind y", windVec[1]);
+			parameter_manager.changeParameter("Model", "Wind Speed", (rand.nextFloat()*3));
 			generator.randomMap();
 		} else {
 			parameter_manager.changeParameter("Model", "Width", 10f);
@@ -555,5 +559,17 @@ public class Simulation extends Observable implements Serializable, Observer {
 
 	public int getActionCosts(){
 		return actionCosts;
+	}
+
+	private float[] generateNormalizedVector(){
+		float x = rand.nextFloat();
+
+		float y = (float) Math.sqrt((1-(x*x)));
+
+		x = rand.nextBoolean()?x:-x;
+		y = rand.nextBoolean()?y:-y;
+
+		float[] nVec = {x,y};
+		return nVec;
 	}
 }

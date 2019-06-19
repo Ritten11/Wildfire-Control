@@ -34,10 +34,10 @@ public class Simulation extends Observable implements Serializable, Observer {
 	private long randomizer_seed = 3;
 
 	// parameters related to fitness
-	int agentDeathPenalty;
-	int totalFuel = 0;
-	int totalFuelBurnt = 0;
-	int actionCosts = 0;
+	private int agentDeathPenalty;
+	private int totalFuel = 0;
+	private int totalFuelBurnt = 0;
+	private int actionCosts = 0;
 	final static boolean countMoveCost = false; //If disabled, the cost of moving around is not added to the actionCost.
 	public int goalsHit = 0;
 

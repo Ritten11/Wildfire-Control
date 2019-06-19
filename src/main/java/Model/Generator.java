@@ -275,21 +275,11 @@ class Generator implements Serializable {
         }
 
         // FIRE
-        // Imagine the map as a 3x3 grid, the fire will always spawn in this cell:
-        // X X X
-        // X F X
-        // X X X
-        boolean fireStarted = false;
-        while (!fireStarted) {
-            int rand_x = rand.nextInt(width);
-            int rand_y = rand.nextInt(height);
-            if (rand_x > width/3 && rand_x < 2*width/3 && rand_y > height/3 && rand_y < 2*height/3) {
-                Element cell = cells.get(rand_x).get(rand_y);
-                if (cell.isBurnable()) {
-                    cell.setBurning();
-                    fireStarted = true;
-                }
-            }
+        // Fire should always start in the center
+        if (!cells.get(width/2).get(height/2).isBurnable()){
+            randomMap();
+        } else {
+            cells.get(width/2).get(height/2).setBurning();
         }
 
         // AGENTS

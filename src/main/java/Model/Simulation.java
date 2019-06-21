@@ -137,9 +137,9 @@ public class Simulation extends Observable implements Serializable, Observer {
 
 	public Simulation(RLController controller, boolean use_gui) {
 		this(use_gui);
-		if(generateRandom){
-			System.out.println("WARNING! GENERATING RANDOM MIGHT CAUSE NPE");
-		}
+//		if(generateRandom){
+//			System.out.println("WARNING! GENERATING RANDOM MIGHT CAUSE NPE");
+//		}
 		this.rlController = controller;
 		for (Agent a: agents) {
 			a.setController(rlController);
@@ -157,7 +157,7 @@ public class Simulation extends Observable implements Serializable, Observer {
 		width = 20; //50
 		height = 20; //50
 		nr_agents = 2;
-		energyAgents = 20;
+		energyAgents = 50;
 		if (use_gui) {
 			step_time = 100;
 		} else {

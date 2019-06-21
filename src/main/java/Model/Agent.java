@@ -42,7 +42,7 @@ public class Agent implements Serializable{
         this.simulation = simulation;
         this.parameterManager = parameterManager;
         initializeParameters();
-        this.id=id; //TODO! Do we need the ID or is that only for debugging?
+        this.id=id;
         this.x=x;
         this.y=y;
     }
@@ -66,8 +66,6 @@ public class Agent implements Serializable{
             //TODO! Can't we use the Element.moveSpeed == 0 as defined around Element ~68
             switch(element.getType()) {
                 case "Water":
-                    return false;
-                case "House":
                     return false;
                 default:
                     return true;

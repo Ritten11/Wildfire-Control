@@ -27,6 +27,7 @@ public class House extends Element
         this.ignitionThreshold = 1;
         this.fuel = starting_fuel = 25;
         this.moveSpeed = 1;
+        this.clearCost = 10;
     }
 
 }

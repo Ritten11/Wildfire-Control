@@ -45,7 +45,7 @@ public class MLP implements Serializable {
             return;
         }
         if (hiddenOutputWeights.length!=output.length){
-            System.out.println("Incorrect output-array size input.length: " + output.length + " output[0].length: " + output[0].length + " outputHiddenWeights.length: " + hiddenOutputWeights.length + " outputHiddenWeights[0].length: " + hiddenOutputWeights[0].length);
+            System.out.println("Incorrect output-array size output.length: " + output.length + " output[0].length: " + output[0].length + " outputHiddenWeights.length: " + hiddenOutputWeights.length + " outputHiddenWeights[0].length: " + hiddenOutputWeights[0].length);
             System.out.println("Weight Matrix");
             np.printMatrix(hiddenOutputWeights);
             System.out.println("Output matrix");

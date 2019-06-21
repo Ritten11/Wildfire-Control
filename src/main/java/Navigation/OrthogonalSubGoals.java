@@ -8,7 +8,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-//TODO: ONLY COMPATIBLE WITH SINGLE AGENT!!!
 public class OrthogonalSubGoals implements Serializable {
     List<List<Element>> cells;
     int fireX, fireY;
@@ -111,7 +110,7 @@ public class OrthogonalSubGoals implements Serializable {
             if (!(goalsReached.contains(getNextGoal(key))||agentDiggingTowardGoal(getNextGoal(key)))) { //Make sure only goals are assigned that have not been reached jet.
                 SubGoal temp = new SubGoal(cells, subGoals.get(key), algorithm, a, false);
                 if (minDist > temp.getMoveCost()) {
-                    if (!agentGoals.containsValue(key)||(Collections.frequency(new ArrayList<String>(agentGoals.values()), key)==1 && agentDiggingTowardGoal(key))) { //TODO: make sure that at most one agent is moving towards this goal, and that this agent is not cutting.
+                    if (!agentGoals.containsValue(key)||(Collections.frequency(new ArrayList<String>(agentGoals.values()), key)==1 && agentDiggingTowardGoal(key))) {
                         minDist = temp.getMoveCost();
                         keyNearestGoal = key;
                     }

@@ -116,7 +116,7 @@ public class DijkstraShortestPath extends PathFinder implements Serializable {
      */
     private int getMoveCost(int x, int y){
         Element e = cells.get(x).get(y);
-        return ((e.isReachedAsGoal()||e.isBurning()) ? 9999 : agent.determineMoveCost(cells.get(x).get(y)));
+        return ((e.isBurning()) ? 9999 : agent.determineMoveCost(cells.get(x).get(y)));
     }
 
 

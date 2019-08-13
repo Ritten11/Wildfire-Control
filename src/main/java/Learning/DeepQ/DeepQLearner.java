@@ -3,6 +3,7 @@ package Learning.DeepQ;
 import Learning.Features;
 import Learning.Fitness;
 import Learning.RLController;
+import Learning.SubGoalController;
 import Model.Agent;
 import Model.Simulation;
 import Navigation.OrthogonalSubGoals;
@@ -19,6 +20,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
+/**
+ * Function of this class: Produce an array or HashSet containing the distances between subgoals and center of fire
+ * Not the function of this class: subgoal management.
+ */
 public class DeepQLearner implements RLController, Serializable {
     private final int max_runs = 20;
     private int run=0;
@@ -44,7 +49,7 @@ public class DeepQLearner implements RLController, Serializable {
 
     private MLP mlp;
     private Random rand;
-    private OrthogonalSubGoals subGoals;
+//    private OrthogonalSubGoals subGoals;
     private Simulation model;
 
     //Variables needed for debugging:
@@ -68,24 +73,25 @@ public class DeepQLearner implements RLController, Serializable {
 
     //Fields for functionality of navigation and fitness
     private String algorithm = "Bresenham";
+    private SubGoalController SGC;
     private Fitness fit;
     private Features f;
     private int lowestCost;
     private int[][] costArr;
 
-    private HashSet<String> assignedGoals;
-
-    private Map<String,Double> distMap = Stream.of(
-            new AbstractMap.SimpleEntry<>("WW", 0.0),
-            new AbstractMap.SimpleEntry<>("SW", 0.0),
-            new AbstractMap.SimpleEntry<>("SS", 0.0),
-            new AbstractMap.SimpleEntry<>("SE", 0.0),
-            new AbstractMap.SimpleEntry<>("EE", 0.0),
-            new AbstractMap.SimpleEntry<>("NE", 0.0),
-            new AbstractMap.SimpleEntry<>("NN", 0.0),
-            new AbstractMap.SimpleEntry<>("NW", 0.0))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
+//    private HashSet<String> assignedGoals;
+//
+//    private Map<String,Double> distMap = Stream.of(
+//            new AbstractMap.SimpleEntry<>("WW", 0.0),
+//            new AbstractMap.SimpleEntry<>("SW", 0.0),
+//            new AbstractMap.SimpleEntry<>("SS", 0.0),
+//            new AbstractMap.SimpleEntry<>("SE", 0.0),
+//            new AbstractMap.SimpleEntry<>("EE", 0.0),
+//            new AbstractMap.SimpleEntry<>("NE", 0.0),
+//            new AbstractMap.SimpleEntry<>("NN", 0.0),
+//            new AbstractMap.SimpleEntry<>("NW", 0.0))
+//            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+//
     private Map<String, InputCost> goalToCostMap= Stream.of(
             new AbstractMap.SimpleEntry<>("WW", new InputCost()),
             new AbstractMap.SimpleEntry<>("SW", new InputCost()),
@@ -98,6 +104,7 @@ public class DeepQLearner implements RLController, Serializable {
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
     public DeepQLearner(){
+        SGC = new SubGoalController("CQL", model);
         f = new Features();
         fit = new Fitness();
         rand = new Random();
@@ -134,10 +141,10 @@ public class DeepQLearner implements RLController, Serializable {
     private void trainMLP(){
         model = new Simulation(this, use_gui, randSeed);
         backup = model.getAgents().get(0);
-        assignedGoals = new HashSet<>();
+//        assignedGoals = new HashSet<>();
 
-        double fireLocation[] = f.locationCenterFireAndMinMax(model);
-        subGoals = new OrthogonalSubGoals((int)fireLocation[0],(int)fireLocation[1], distMap, algorithm, model.getAllCells());
+//        double fireLocation[] = f.locationCenterFireAndMinMax(model);
+//        subGoals = new OrthogonalSubGoals((int)fireLocation[0],(int)fireLocation[1], distMap, algorithm, model.getAllCells());
 
         JFrame frame;
         if(use_gui){
@@ -146,28 +153,18 @@ public class DeepQLearner implements RLController, Serializable {
         }
 
 
-        for (Agent a:model.getAgents()){
-//            if (debugging){
-//                System.out.println("assigning goal to agent: " + a.getId());
-//            }
-            updateDistMap(a);
-            subGoals.selectClosestSubGoal(a);
-        }
+        SGC.updateDistMap();
 
 
         if ((debugging)&&use_gui){
             //model.applyUpdates();
             sleep(500);
-            takeScreenShot();
+            SGC.screenshot(run, iter);
         }
 
         model.start();
         if (debugging){
-            System.out.println("Final distance Map: " + Collections.singletonList(distMap));
-            System.out.println("Final number of sub goals assigned: " + goalToCostMap.keySet().size());
-            for (Map.Entry<String, InputCost> entry : goalToCostMap.entrySet()) {
-                System.out.println(entry.getKey()+" : "+Arrays.toString(entry.getValue().stateX)+" -> "+Arrays.toString(entry.getValue().stateXPrime));
-            }
+            SGC.printFinalDistMap();
         }
         int[] costArr = getCost();
         int cost = costArr[0] + costArr[1] + costArr[2];
@@ -180,7 +177,7 @@ public class DeepQLearner implements RLController, Serializable {
             System.out.println("In iteration: " + iter + " a solution was found with cost: " + lowestCost);
         }
 
-        if (model.getAgents().isEmpty()){ //TODO: Again, should really try to come up with better solution.
+        if (model.getAgents().isEmpty()){
             model.getAgents().add(backup);
         }
 
@@ -191,7 +188,7 @@ public class DeepQLearner implements RLController, Serializable {
                 ic.setStateXPrime(getInputSet("WW", model.getAgents().get(0)));
                 System.out.println("updated next state of " + key + " to: " + Arrays.toString(ic.stateXPrime));
             }
-            double action = distMap.get(key);
+            double action = SGC.getDist(key);
             train(ic.stateX, ic.stateXPrime, Math.toIntExact(Math.round(action)), ic.cost);
 
         }
@@ -232,71 +229,42 @@ public class DeepQLearner implements RLController, Serializable {
 //        System.out.println(Arrays.toString(oldState)+" -> "+Arrays.toString(oldValue));
     }
 
-    private void updateDistMap(String key, Agent agent){
-
-        if (!(subGoals.isGoalOfAgent(key)||assignedGoals.contains(key))) {
-//            if (debugging) {
-//                System.out.println("updating goal " + key + " for agent #" + agent.getId());
-//            }
-            double[] input = getInputSet(key, agent);
-
-            setDistance(input, key);
-//
-//            System.out.println(key + " " + goalToCostMap.keySet().contains(key) + " size map: " + goalToCostMap.keySet().size());
-            goalToCostMap.get(key).setStateX(input);
-//                double[] in = goalToCostMap.get(key).stateX;
-//                if (debugging) {
-//                    System.out.println("Input changed to " + Arrays.toString(goalToCostMap.get(key).stateX) + " from " + Arrays.toString(in));
-//                }
-
-        } else {
-//            if (debugging) {
-//                System.out.println("Not updating goal already assigned to/reached by other agent -> ");
-//            }
-        }
-    }
-
-    private void updateDistMap(Agent a){
-        for (String key : distMap.keySet()){
-            updateDistMap(key, a);
-        }
-    }
-
     @Override
     public void pickAction(Agent a) {
-        if (model.goalsHit<distMap.keySet().size()) {
-            if (a.onGoal()) {
-                assignedGoals.add(subGoals.getAgentGoals().get(a));
-                updateGoalsHit(a);
-                updateDistMap(subGoals.getNextGoal(a), a);
-                subGoals.setNextGoal(a);
-            }
-            String nextAction = a.subGoal.getNextAction();
-            if (nextAction.equals("PathFailed")){
-                subGoals.resetGoal(a);
-                pickAction(a);
-                return;
-            } else {
-                a.takeAction(nextAction);
-            }
-            // TODO: This piece of code is ugly as hell, come up with better solution
-            if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
-                subGoals.removeGoalReached(a);
-                backup = a;
-                if (debugging) {
-                    System.out.println("Nr of Agents: " + model.getAgents().size());
-                }
-            }
-
-            if (use_gui) {
-                if (showActionFor > 0) {
-                    sleep(showActionFor);
-                    showActionFor -= 0;
-                }
-            }
-        } else { //Once all goals have been reached, the agent should stop moving as there is no use for it anymore.
-            a.takeAction("Do Nothing");
-        }
+        SGC.takeNextAction(a);
+//        if (model.goalsHit<distMap.keySet().size()) {
+//            if (a.onGoal()) {
+//                assignedGoals.add(subGoals.getAgentGoals().get(a));
+//                updateGoalsHit(a);
+//                SGC.updateDistMap(subGoals.getNextGoal(a), a);
+//                subGoals.setNextGoal(a);
+//            }
+//            String nextAction = a.subGoal.getNextAction();
+//            if (nextAction.equals("PathFailed")){
+//                subGoals.resetGoal(a);
+//                pickAction(a);
+//                return;
+//            } else {
+//                a.takeAction(nextAction);
+//            }
+//            // TODO: This piece of code is ugly as hell, come up with better solution
+//            if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
+//                subGoals.removeGoalReached(a);
+//                backup = a;
+//                if (debugging) {
+//                    System.out.println("Nr of Agents: " + model.getAgents().size());
+//                }
+//            }
+//
+//            if (use_gui) {
+//                if (showActionFor > 0) {
+//                    sleep(showActionFor);
+//                    showActionFor -= 0;
+//                }
+//            }
+//        } else { //Once all goals have been reached, the agent should stop moving as there is no use for it anymore.
+//            a.takeAction("Do Nothing");
+//        }
     }
 
     private void initNN(){
@@ -392,51 +360,7 @@ public class DeepQLearner implements RLController, Serializable {
         }
     }
 
-    public void setDistance(double in[], String key) {
-        float randFloat = rand.nextFloat();
-        int i = 0;
-//        int actionIndex;
-        List<IndexActLink> activationList = greedyLocation(in);
-//        do { //TODO: Implement Boltzmann-distributed Exploration: https://www.researchgate.net/publication/2502531_The_Role_Of_Exploration_In_Learning_Control
-//            actionIndex = boltzmannDistAct(activationList);
-//            subGoals.updateSubGoal(key,actionIndex);
-//
-//            Iterator<IndexActLink> iter = activationList.iterator();
-//            while(iter.hasNext()) {
-//                IndexActLink ial = iter.next();
-//                if (ial.index == actionIndex) {
-//                    iter.remove();
-//                }
-//            }
-//
-//        } while (!subGoals.checkSubGoal(key, model.getAgents())&&!activationList.isEmpty());
-        if (randFloat > explorationRate) {
-            do {
-                subGoals.updateSubGoal(key, activationList.get(i).index);
-                i++;
-                if (debugging){
-                    if (i>7){
-                        System.out.println("ACTIVATIONLIST > 7 : " + activationList.size());
-                    }
-                }
-                if (i>=activationList.size()){
-                    resetSimulation("All locations invalid");
-                }
 
-            } while (!subGoals.checkSubGoal(key, model.getAgents()));
-        } else {
-            do {
-                if (i>=10){
-                    resetSimulation("Could not find suitable random location");
-                }
-                subGoals.updateSubGoal(key, randomLocation());
-                i++;
-            } while (!subGoals.checkSubGoal(key, model.getAgents()));
-        }
-        if (use_gui && (debugging)) {
-            subGoals.paintGoal(key);
-        }
-    }
 
     private int[] getCost(){
         int[] cost = fit.totalCosts(model);
@@ -476,13 +400,6 @@ public class DeepQLearner implements RLController, Serializable {
         return min;
     }
 
-    protected void takeScreenShot(){
-        JFrame f = createMainFrame();
-        sleep(500);
-        screenshot(subGoals.getGoalsReached().size(), lowestCost);
-        f.dispose();
-    }
-
     protected JFrame createMainFrame(){
         JFrame f = new MainFrame(model);
         sleep(1000);
@@ -512,24 +429,24 @@ public class DeepQLearner implements RLController, Serializable {
             System.out.println(ex.getMessage());
         }
     }
-
-    private void updateGoalsHit(Agent agent){
-        if (agent.isCutting()){
-            model.goalsHit++;
-            goalToCostMap.get(subGoals.getAgentGoals().get(agent)).setStateXPrime(getInputSet(subGoals.getNextGoal(agent),agent));
-        }
-        if (debugging){
-            System.out.println("# of goals hit: " + model.goalsHit);
-        }
-    }
-
-    private void resetSimulation(String error){
-        System.out.println("UNEXPECTED ERROR: (" + error + ") OCCURRED, DISCARDING CURRENT MODEL AND STARTING NEW");
-        nrErrors++;
-        System.out.println("Distance Map: " + Collections.singletonList(distMap));
-        takeScreenShot();
-        trainMLP();
-    }
+//
+//    private void updateGoalsHit(Agent agent){
+//        if (agent.isCutting()){
+//            model.goalsHit++;
+//            goalToCostMap.get(subGoals.getAgentGoals().get(agent)).setStateXPrime(getInputSet(subGoals.getNextGoal(agent),agent));
+//        }
+//        if (debugging){
+//            System.out.println("# of goals hit: " + model.goalsHit);
+//        }
+//    }
+//
+//    private void resetSimulation(String error){
+//        System.out.println("UNEXPECTED ERROR: (" + error + ") OCCURRED, DISCARDING CURRENT MODEL AND STARTING NEW");
+//        nrErrors++;
+//        System.out.println("Distance Map: " + Collections.singletonList(distMap));
+//        takeScreenShot();
+//        trainMLP();
+//    }
 
     private String dirGenerator(){
         return System.getProperty("user.dir") + "/results/Q-Learning/" + algorithm + "/" + model.getNr_agents() + "_agent_environment";

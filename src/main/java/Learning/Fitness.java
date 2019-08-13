@@ -168,4 +168,12 @@ public class Fitness implements Serializable {
 	public int totalMoveCost(Simulation model){
 		return model.getActionCosts();
 	}
+
+	/**
+	 * In order to compose where the different costs came from, the penalty recieved from the an agent dying is
+	 * passed by a different method
+	 * @param model
+	 * @return
+	 */
+	public int totalAgentPenalty(Simulation model) {return model.getAgentDeathCost();}
 }

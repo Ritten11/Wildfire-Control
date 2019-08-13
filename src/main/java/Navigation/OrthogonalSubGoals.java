@@ -118,7 +118,7 @@ public class OrthogonalSubGoals implements Serializable {
             }
         }
         if (keyNearestGoal==null){
-            System.out.println("Going to default goal");
+            //System.out.println("Going to default goal");
             keyNearestGoal = defaultKey;
         }
         if (!agentGoals.keySet().contains(a)){
@@ -181,6 +181,11 @@ public class OrthogonalSubGoals implements Serializable {
     }
 
 
+    /**
+     * Method to check wether there is an agent cutting towards the given goal
+     * @param key: Goal of interest
+     * @return boolean value on wether or not there is an agent cutting towards this goal
+     */
     private boolean agentDiggingTowardGoal(String key){
         List<Map.Entry<Agent, String>>  entries=  agentGoals //Getting all agents which have the goal "key" assigned to it
                 .entrySet()
@@ -327,7 +332,10 @@ public class OrthogonalSubGoals implements Serializable {
         return  agentGoals.values().contains(key);
     }
 
-    public void removeGoalReached(String key){
+    public void removeGoalReached(Agent agent){
+
+        String key = agentGoals.get(agent);
+        agentGoals.remove(agent);
         goalsReached.remove(key);
     }
 }

@@ -12,8 +12,7 @@ import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.Serializable;
+import java.io.*;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -21,11 +20,13 @@ import java.util.stream.Stream;
 
 
 public class DeepQLearner implements RLController, Serializable {
+    private final int max_runs = 20;
+    private int run=0;
     private static int iter=0;
     private static int nrErrors = 0;
     protected int iterations = 2000;
-    protected float explorationRate = 1.00f;
-    protected float exploreDiscount = explorationRate/ iterations;
+    protected float explorationRate = 0.10f;
+    protected float exploreDiscount = explorationRate/iterations;
     protected float gamma = 0.1f;
     protected float alpha = 0.001f;
 
@@ -47,11 +48,11 @@ public class DeepQLearner implements RLController, Serializable {
     private Simulation model;
 
     //Variables needed for debugging:
-    final static boolean use_gui = false;
+    final static boolean use_gui = true;
     final static boolean debugging = false;
-    private final static int timeActionShown = 0;
+    private final static int timeActionShown = 250;
     private int showActionFor;
-    private long randSeed = 7;
+    private long randSeed = 0;
     /* IF RANDOM SEED IN SIMULATION CLASS == 0
      0 -> d=0
      1 -> d=5
@@ -70,7 +71,7 @@ public class DeepQLearner implements RLController, Serializable {
     private Fitness fit;
     private Features f;
     private int lowestCost;
-    private int[] costArr;
+    private int[][] costArr;
 
     private HashSet<String> assignedGoals;
 
@@ -99,42 +100,39 @@ public class DeepQLearner implements RLController, Serializable {
     public DeepQLearner(){
         f = new Features();
         fit = new Fitness();
-        lowestCost = Integer.MAX_VALUE;
-        costArr = new int[iterations];
+        rand = new Random();
+        while (run<max_runs) {
+            run++;
+            System.out.println("=====================STARTING RUN #" + run + "==================");
+            lowestCost = Integer.MAX_VALUE;
+            costArr = new int[iterations][3];
+            randSeed = 0;
+            explorationRate = 0.1f;
 
-        initNN();
 
-        if (!debugging){
-            randSeed=new Random().nextLong();
-        }
+            initNN();
 
-        for ( iter = 0; iter< iterations; iter++){
-            showActionFor = timeActionShown;
-            trainMLP();
-            costArr[iter]=getCost();
-            if (explorationRate>0){
-                explorationRate-= exploreDiscount;
+            for (iter = 0; iter < iterations; iter++) {
+                randSeed++;
+                showActionFor = timeActionShown;
+                trainMLP();
+                costArr[iter] = getCost();
+                if (explorationRate > 0) {
+                    explorationRate -= exploreDiscount;
+                }
             }
-        }
 
-        System.out.println("Average cost over 100 runs:");
-        double avCost=0;
-        for (int i = 0; i< iterations; i++){
-            avCost+=((double)costArr[i])/100;
-            if ((i+1)%100==0){
-                System.out.println("At iterations #" + i + " avCost: " + avCost);
-                avCost=0;
+            writePerformanceFile();
+
+            if (nrErrors != 0) {
+                System.out.println("Total # of errors occurred: " + nrErrors);
             }
-        }
-
-        if (nrErrors!=0){
-            System.out.println("Total # of errors occurred: " + nrErrors);
         }
 
     }
 
     private void trainMLP(){
-        model = new Simulation(this, use_gui);
+        model = new Simulation(this, use_gui, randSeed);
         backup = model.getAgents().get(0);
         assignedGoals = new HashSet<>();
 
@@ -147,6 +145,7 @@ public class DeepQLearner implements RLController, Serializable {
 
         }
 
+
         for (Agent a:model.getAgents()){
 //            if (debugging){
 //                System.out.println("assigning goal to agent: " + a.getId());
@@ -155,44 +154,45 @@ public class DeepQLearner implements RLController, Serializable {
             subGoals.selectClosestSubGoal(a);
         }
 
-        if ((debugging)&&use_gui){
-            model.applyUpdates();
-            sleep(500);
-        }
 
-        if (debugging) {
-            System.out.println("Distance Map: " + Collections.singletonList(distMap));
-            System.out.println("Length of feature vector:" + getInputSet("WW", model.getAgents().get(0)).length);
+        if ((debugging)&&use_gui){
+            //model.applyUpdates();
+            sleep(500);
+            takeScreenShot();
         }
 
         model.start();
         if (debugging){
+            System.out.println("Final distance Map: " + Collections.singletonList(distMap));
             System.out.println("Final number of sub goals assigned: " + goalToCostMap.keySet().size());
             for (Map.Entry<String, InputCost> entry : goalToCostMap.entrySet()) {
-                System.out.println(entry.getKey()+" : "+Arrays.toString(entry.getValue().stateX));
+                System.out.println(entry.getKey()+" : "+Arrays.toString(entry.getValue().stateX)+" -> "+Arrays.toString(entry.getValue().stateXPrime));
             }
         }
-        int cost = getCost();
+        int[] costArr = getCost();
+        int cost = costArr[0] + costArr[1] + costArr[2];
         for (InputCost inputCost:goalToCostMap.values()){
             inputCost.setCost(cost);
+        }
+
+        if (cost<lowestCost){
+            lowestCost = cost;
+            System.out.println("In iteration: " + iter + " a solution was found with cost: " + lowestCost);
         }
 
         if (model.getAgents().isEmpty()){ //TODO: Again, should really try to come up with better solution.
             model.getAgents().add(backup);
         }
 
-        if (cost<lowestCost){
-            lowestCost = cost;
-            System.out.println("In iteration: " + iter + " a solution was found with cost: " + lowestCost);
-            //takeScreenShot();
-        }
-
         for (Map.Entry<String, InputCost> entry: goalToCostMap.entrySet()){
             String key = entry.getKey();
             InputCost ic = entry.getValue();
+            if (ic.stateXPrime==null){ //If the goal has not been reached, set the result of that goal to the default feature vector
+                ic.setStateXPrime(getInputSet("WW", model.getAgents().get(0)));
+                System.out.println("updated next state of " + key + " to: " + Arrays.toString(ic.stateXPrime));
+            }
             double action = distMap.get(key);
-            double[] newState = getInputSet(key, model.getAgents().get(0));
-            train(ic.stateX, newState, Math.toIntExact(Math.round(action)), ic.cost);
+            train(ic.stateX, ic.stateXPrime, Math.toIntExact(Math.round(action)), ic.cost);
 
         }
 
@@ -281,7 +281,7 @@ public class DeepQLearner implements RLController, Serializable {
             }
             // TODO: This piece of code is ugly as hell, come up with better solution
             if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
-                subGoals.removeGoalReached(subGoals.getAgentGoals().get(a));
+                subGoals.removeGoalReached(a);
                 backup = a;
                 if (debugging) {
                     System.out.println("Nr of Agents: " + model.getAgents().size());
@@ -299,9 +299,9 @@ public class DeepQLearner implements RLController, Serializable {
         }
 
         // TODO: Check if other RL techniques have similar kill command
-        if (model.getActiveCells().size()==0){
-            model.stop("No more active cells");
-        }
+//        if (model.getActiveCells().size()==0){
+//            model.stop("No more active cells");
+//        }
 
     }
 
@@ -314,13 +314,11 @@ public class DeepQLearner implements RLController, Serializable {
         sizeOutput = Math.min(minX,minY);
         sizeInput = getInputSet("WW", model.getAgents().get(0)).length;
 
-
-        rand = new Random();
         batchNr = 0;
         inputBatch = new double[batchSize][sizeInput];
         outputBatch = new double[batchSize][sizeOutput];
 
-        mlp = new MLP(sizeInput, sizeHidden, sizeOutput, alpha, batchSize, randSeed);
+        mlp = new MLP(sizeInput, sizeHidden, sizeOutput, alpha, batchSize, new Random().nextLong());
     }
 
 
@@ -334,7 +332,7 @@ public class DeepQLearner implements RLController, Serializable {
         List<IndexActLink> outputList = new LinkedList<>();
 
         for (int i = 0; i<outputSet.length; i++){
-            outputList.add(new IndexActLink(i, outputSet[i]));
+            outputList.add(new IndexActLink(i, (float) outputSet[i]));
         }
 
         outputList.sort(Comparator.comparing(IndexActLink::getActivation, Comparator.nullsLast(Comparator.naturalOrder())));
@@ -347,6 +345,33 @@ public class DeepQLearner implements RLController, Serializable {
 
     protected int randomLocation(){
         return rand.nextInt(sizeOutput);
+    }
+
+    protected int boltzmannDistAct(List<IndexActLink> activationList){
+        double sum = 0;
+        for (IndexActLink ial:activationList){
+            sum += Math.exp(1/(explorationRate*ial.activation));
+        }
+        if (debugging){
+            for (IndexActLink ial:activationList){
+                System.out.println("Sum: " + sum + " -> index #" + ial.index + " has prob of: " + Math.exp(1/(explorationRate*ial.activation))/sum);
+            }
+        }
+        if (Double.isInfinite(sum)){
+            sum = Double.MAX_VALUE;
+            System.out.println("infinite value");
+        }
+        double randDouble = rand.nextDouble();
+        double randActionSum = Math.exp(1/(explorationRate*activationList.get(0).activation))/sum;
+        int i = 0;
+        while (randDouble>randActionSum){
+            i++;
+            randActionSum+= Math.exp(1/(explorationRate*activationList.get(0).activation))/sum;
+        }
+        if (debugging){
+            System.out.println("Returning " + activationList.get(i).index + " as randDouble = " + randDouble + " and randActionsum  = " + randActionSum);
+        }
+        return activationList.get(i).index;
     }
 
     private double[] getQ(double[] in){
@@ -376,8 +401,22 @@ public class DeepQLearner implements RLController, Serializable {
     public void setDistance(double in[], String key) {
         float randFloat = rand.nextFloat();
         int i = 0;
+//        int actionIndex;
+        List<IndexActLink> activationList = greedyLocation(in);
+//        do { //TODO: Implement Boltzmann-distributed Exploration: https://www.researchgate.net/publication/2502531_The_Role_Of_Exploration_In_Learning_Control
+//            actionIndex = boltzmannDistAct(activationList);
+//            subGoals.updateSubGoal(key,actionIndex);
+//
+//            Iterator<IndexActLink> iter = activationList.iterator();
+//            while(iter.hasNext()) {
+//                IndexActLink ial = iter.next();
+//                if (ial.index == actionIndex) {
+//                    iter.remove();
+//                }
+//            }
+//
+//        } while (!subGoals.checkSubGoal(key, model.getAgents())&&!activationList.isEmpty());
         if (randFloat > explorationRate) {
-            List<IndexActLink> activationList = greedyLocation(in);
             do {
                 subGoals.updateSubGoal(key, activationList.get(i).index);
                 i++;
@@ -390,7 +429,7 @@ public class DeepQLearner implements RLController, Serializable {
                     resetSimulation("All locations invalid");
                 }
 
-            } while (!subGoals.checkSubGoal(key, model.getAgents())); //TODO: Again, only possible in single agent environment.
+            } while (!subGoals.checkSubGoal(key, model.getAgents()));
         } else {
             do {
                 if (i>=10){
@@ -398,20 +437,20 @@ public class DeepQLearner implements RLController, Serializable {
                 }
                 subGoals.updateSubGoal(key, randomLocation());
                 i++;
-            } while (!subGoals.checkSubGoal(key, model.getAgents())); //TODO: Again, only possible in single agent environment.
+            } while (!subGoals.checkSubGoal(key, model.getAgents()));
         }
-        //TODO: goalToCostMap
         if (use_gui && (debugging)) {
             subGoals.paintGoal(key);
         }
     }
 
-    private int getCost(){
-        int cost=0;
-        cost+=fit.totalFuelBurnt(model);
-        cost+=fit.totalMoveCost(model);
+    private int[] getCost(){
+        int cost[]=new int[3];
+        cost[0]=fit.totalFuelBurnt(model);
+        cost[1]=fit.totalMoveCost(model);
+        cost[2]=fit.totalAgentPenalty(model);
         if (debugging){
-            System.out.println("Total fuel burnt: " + fit.totalFuelBurnt(model) + ", Total moveCost: " + fit.totalMoveCost(model) + ", Total cost: " + cost);
+            System.out.println("Total fuel burnt: " + fit.totalFuelBurnt(model) + ", Total moveCost: " + fit.totalMoveCost(model) + ", Total cost: " + (cost[0]+cost[1]+cost[2]));
         }
         return cost;
     }
@@ -433,7 +472,7 @@ public class DeepQLearner implements RLController, Serializable {
         float windX = model.getParameters().get("Wind x");
         float windY = model.getParameters().get("Wind y");
         float windS = model.getParameters().get("Wind Speed");
-        double[] set = f.appendDoubles(f.cornerVectors(model, a, false), (f.windRelativeToSubgoal(windX, windY, subGoal)*windS), f.numberSubGoalsHit(model));
+        double[] set = f.appendDoubles(f.cornerVectors(model, a, false), f.windRelativeToSubgoal(windX, windY, subGoal)*windS, f.numberSubGoalsHit(model));
         //double[] set = new double[]{f.windRelativeToSubgoal(windX, windY, subGoal)};
         return set;
     }
@@ -453,8 +492,8 @@ public class DeepQLearner implements RLController, Serializable {
 
     protected void takeScreenShot(){
         JFrame f = createMainFrame();
-        sleep(10000);
-        screenshot(0, lowestCost);
+        sleep(500);
+        screenshot(subGoals.getGoalsReached().size(), lowestCost);
         f.dispose();
     }
 
@@ -477,11 +516,11 @@ public class DeepQLearner implements RLController, Serializable {
         }
     }
 
-    protected void screenshot(int generation, int i){
+    protected void screenshot(int goalsHit, int i){
         Rectangle screenRect = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
         try {
             BufferedImage capture = new Robot().createScreenCapture(screenRect);
-            ImageIO.write(capture, "bmp", new File("./screenshot_g"+ generation+"_i_"+i+".bmp"));
+            ImageIO.write(capture, "bmp", new File("./screenshot_run"+ run +"_i_"+iter+".bmp"));
 
         }catch (Exception ex) {
             System.out.println(ex.getMessage());
@@ -490,8 +529,8 @@ public class DeepQLearner implements RLController, Serializable {
 
     private void updateGoalsHit(Agent agent){
         if (agent.isCutting()){
-            goalToCostMap.get(subGoals.getAgentGoals().get(agent)).setStateXPrime(getInputSet(subGoals.getNextGoal(agent),agent));
             model.goalsHit++;
+            goalToCostMap.get(subGoals.getAgentGoals().get(agent)).setStateXPrime(getInputSet(subGoals.getNextGoal(agent),agent));
         }
         if (debugging){
             System.out.println("# of goals hit: " + model.goalsHit);
@@ -506,14 +545,48 @@ public class DeepQLearner implements RLController, Serializable {
         trainMLP();
     }
 
+    private String dirGenerator(){
+        return System.getProperty("user.dir") + "/results/Q-Learning/" + algorithm + "/" + model.getNr_agents() + "_agent_environment";
+    }
+
+    private void writePerformanceFile(){
+        String dir = dirGenerator();
+        File file = new File(dir);
+        if (file.mkdirs() || file.isDirectory()) {
+            try {
+                FileWriter csvWriter = new FileWriter(dir + "/run" + run + ".csv");
+                csvWriter.append("Iteration");
+                csvWriter.append(",");
+                csvWriter.append("BurnCost");
+                csvWriter.append(",");
+                csvWriter.append("MoveCost");
+                csvWriter.append(",");
+                csvWriter.append("AgentDeathPenalty");
+                csvWriter.append("\n");
+
+                for (int i = 0; i< iterations; i++){
+                    csvWriter.append(i+","+costArr[i][0]+","+costArr[i][1]+","+costArr[i][2]+"\n");
+                }
+
+                csvWriter.flush();
+                csvWriter.close();
+            } catch (IOException e) {
+                System.out.println("Some IO-exception occurred");
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("Unable to make directory");
+        }
+    }
+
     /**
      * Class needed to order a list containing the index of the distance and the activation of that distance.
      */
     private class IndexActLink{
         private int index;
-        private double activation;
+        private float activation;
 
-        private IndexActLink(int i, double a){
+        private IndexActLink(int i, float a){
             index=i;
             activation=a;
         }

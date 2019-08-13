@@ -25,20 +25,21 @@ public class Simulation extends Observable implements Serializable, Observer {
 	private int height;
 	private int step_time;
 	private int step_size;
-	private int step_limit = 100;
+	private int step_limit = 1000;
 	private boolean undo_redo;
 	private boolean running;
 	private boolean use_gui;
 	private boolean generateRandom = true;
 	private Random rand;
-	private long randomizer_seed = 3;
+	private long randomizer_seed;
 
 	// parameters related to fitness
 	private int agentDeathPenalty;
+	private int totalAgentsDied=0;
 	private int totalFuel = 0;
 	private int totalFuelBurnt = 0;
 	private int actionCosts = 0;
-	final static boolean countMoveCost = false; //If disabled, the cost of moving around is not added to the actionCost.
+	final static boolean countMoveCost = true; //If disabled, the cost of moving around is not added to the actionCost.
 	public int goalsHit = 0;
 
 	// parameters related to wind
@@ -64,12 +65,16 @@ public class Simulation extends Observable implements Serializable, Observer {
 	private Generator generator;
 	private RLController rlController;
 
-	public Simulation(boolean use_gui) {
+	public Simulation(boolean use_gui, long seed) {
 		this.use_gui = use_gui;
 
-		// Randomization initialization
-		Random seed_gen = new Random();
-		randomizer_seed = seed_gen.nextLong();
+//		// Randomization initialization
+        if (seed>=0){
+            randomizer_seed = seed;
+        } else {
+            Random seed_gen = new Random();
+            randomizer_seed = seed_gen.nextLong();
+        }
 		rand = new Random(randomizer_seed);
 		states = new ArrayList<>();
 
@@ -85,7 +90,7 @@ public class Simulation extends Observable implements Serializable, Observer {
 			float[] windVec = generateNormalizedVector();
 			parameter_manager.changeParameter("Model", "Wind x", windVec[0]);
 			parameter_manager.changeParameter("Model", "Wind y", windVec[1]);
-			parameter_manager.changeParameter("Model", "Wind Speed", (rand.nextFloat()*3));
+			parameter_manager.changeParameter("Model", "Wind Speed", (rand.nextFloat()));
 			generator.randomMap();
 		} else {
 			parameter_manager.changeParameter("Model", "Width", 10f);
@@ -132,11 +137,11 @@ public class Simulation extends Observable implements Serializable, Observer {
 	 * @param controller
 	 */
 	public Simulation(RLController controller) {
-		this(controller, false);
+		this(controller, false, -1);
 	}
 
-	public Simulation(RLController controller, boolean use_gui) {
-		this(use_gui);
+	public Simulation(RLController controller, boolean use_gui, long seed) {
+		this(use_gui, seed);
 //		if(generateRandom){
 //			System.out.println("WARNING! GENERATING RANDOM MIGHT CAUSE NPE");
 //		}
@@ -147,6 +152,10 @@ public class Simulation extends Observable implements Serializable, Observer {
 		parameter_manager.changeParameter("Model", "Step Time", 0f);
 	}
 
+	public Simulation(boolean use_gui){
+	    this(use_gui, -1);
+    }
+
 
 	/**
 	 * This sets all tunable parameters to a default value, and adds it to the list of TextFields tuneable at runtime
@@ -156,7 +165,7 @@ public class Simulation extends Observable implements Serializable, Observer {
 	private void create_parameters() {
 		width = 20; //50
 		height = 20; //50
-		nr_agents = 2;
+		nr_agents = 1;
 		energyAgents = 50;
 		if (use_gui) {
 			step_time = 100;
@@ -169,7 +178,7 @@ public class Simulation extends Observable implements Serializable, Observer {
 		wVecY = 0;
 		windSpeed = 0;
 
-		agentDeathPenalty = 1000; //might be a bit to extreme for smaller maps
+		agentDeathPenalty = 5000; //might be a bit to extreme for smaller maps
 	}
 
 
@@ -339,7 +348,7 @@ public class Simulation extends Observable implements Serializable, Observer {
 		for (Agent a : agents){
 			String status = a.timeStep();
 			if (status.equals("Dead")){
-				totalFuelBurnt += agentDeathPenalty;
+				totalAgentsDied++;
 				agentsToRemove.add(a);
 			}
 		}
@@ -551,6 +560,14 @@ public class Simulation extends Observable implements Serializable, Observer {
 	public void applyUpdates(){
 		setChanged();
 		notifyObservers(cells);
+	}
+
+	/**
+	 * Multiply the difference between the remaining agents and the number with which the simulation started.
+	 * @return: Total penalty for agents that died.
+	 */
+	public int getAgentDeathCost(){
+		return totalAgentsDied*agentDeathPenalty;
 	}
 
 	public void addToActionCost(int cost){

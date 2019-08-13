@@ -176,4 +176,12 @@ public class Fitness implements Serializable {
 	 * @return
 	 */
 	public int totalAgentPenalty(Simulation model) {return model.getAgentDeathCost();}
+
+	public int[] totalCosts(Simulation model){
+		int cost[]=new int[3];
+		cost[0]=totalFuelBurnt(model);
+		cost[1]=totalMoveCost(model);
+		cost[2]=totalAgentPenalty(model);
+		return cost;
+	}
 }

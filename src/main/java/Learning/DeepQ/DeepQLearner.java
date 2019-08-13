@@ -297,12 +297,6 @@ public class DeepQLearner implements RLController, Serializable {
         } else { //Once all goals have been reached, the agent should stop moving as there is no use for it anymore.
             a.takeAction("Do Nothing");
         }
-
-        // TODO: Check if other RL techniques have similar kill command
-//        if (model.getActiveCells().size()==0){
-//            model.stop("No more active cells");
-//        }
-
     }
 
     private void initNN(){
@@ -445,10 +439,7 @@ public class DeepQLearner implements RLController, Serializable {
     }
 
     private int[] getCost(){
-        int cost[]=new int[3];
-        cost[0]=fit.totalFuelBurnt(model);
-        cost[1]=fit.totalMoveCost(model);
-        cost[2]=fit.totalAgentPenalty(model);
+        int[] cost = fit.totalCosts(model);
         if (debugging){
             System.out.println("Total fuel burnt: " + fit.totalFuelBurnt(model) + ", Total moveCost: " + fit.totalMoveCost(model) + ", Total cost: " + (cost[0]+cost[1]+cost[2]));
         }
@@ -469,12 +460,7 @@ public class DeepQLearner implements RLController, Serializable {
 //    }
 
     private double[] getInputSet(String subGoal, Agent a){
-        float windX = model.getParameters().get("Wind x");
-        float windY = model.getParameters().get("Wind y");
-        float windS = model.getParameters().get("Wind Speed");
-        double[] set = f.appendDoubles(f.cornerVectors(model, a, false), f.windRelativeToSubgoal(windX, windY, subGoal)*windS, f.numberSubGoalsHit(model));
-        //double[] set = new double[]{f.windRelativeToSubgoal(windX, windY, subGoal)};
-        return set;
+        return f.getInputSet(model, a, subGoal);
     }
 
 
@@ -505,7 +491,7 @@ public class DeepQLearner implements RLController, Serializable {
 
     protected void disposeMainFrame(JFrame f){
         sleep(500);
-        //f.dispose();
+        f.dispose();
     }
 
     protected void sleep(int t){

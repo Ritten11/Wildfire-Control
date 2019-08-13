@@ -30,6 +30,9 @@ public abstract class CoSyNe implements RLController {
     protected Integer conf_counter = null;
     protected int generation;
 
+    protected boolean use_gui = true;
+    private long randSeed = -1;
+
     public CoSyNe(){
         MLP_shape = new ArrayList<>();
         model = new Simulation(this);
@@ -38,7 +41,7 @@ public abstract class CoSyNe implements RLController {
             MLP_shape.add(defHiddenLayers()[i]);
         }
         MLP_shape.add(defN_outputs());
-        model = new Simulation(this);
+        model = new Simulation(this, use_gui, randSeed);
 
         initializeBags();
 
@@ -173,7 +176,7 @@ public abstract class CoSyNe implements RLController {
      */
     @Override
     public void pickAction(Agent a) {
-        mlp.setInput(getInput());
+        mlp.setInput(getInput()); //TODO: instead of using an MLP, use the path to a sub-goal.
         mlp.calculate();
         double[] outputs = mlp.getOutput();
 

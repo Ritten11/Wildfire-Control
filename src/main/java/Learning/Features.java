@@ -3,6 +3,7 @@ package Learning;
 import Model.Agent;
 import Model.Elements.Element;
 import Model.Simulation;
+import Navigation.SubGoal;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -768,6 +769,15 @@ public class Features implements Serializable {
 
     public double[] cornerVectors(Simulation model, boolean use_octagon){
         return cornerVectors(model, model.getAgents().get(0), use_octagon);
+    }
+
+    public double[] getInputSet(Simulation model, Agent a, String subGoal){
+        float windX = model.getParameters().get("Wind x");
+        float windY = model.getParameters().get("Wind y");
+        float windS = model.getParameters().get("Wind Speed");
+        double[] set = appendDoubles(cornerVectors(model, a, false), windRelativeToSubgoal(windX, windY, subGoal)*windS, numberSubGoalsHit(model));
+        //double[] set = new double[]{f.windRelativeToSubgoal(windX, windY, subGoal)};
+        return set;
     }
 
     public int numberSubGoalsHit(Simulation model){

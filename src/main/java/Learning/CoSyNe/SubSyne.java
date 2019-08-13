@@ -1,5 +1,6 @@
 package Learning.CoSyNe;
 
+import Learning.Features;
 import Learning.Fitness;
 import Model.Agent;
 import Model.Elements.Element;
@@ -8,6 +9,8 @@ import View.MainFrame;
 import org.neuroph.util.TransferFunctionType;
 
 import javax.swing.*;
+
+import static java.lang.Thread.sleep;
 
 /**
  * SubSyne class navigates between subgoals. This class is used by the ActionLearner, so changes made here may result in changes in the HRL approach.
@@ -29,6 +32,11 @@ public class SubSyne extends CoSyNe{
     protected void testMLP(){
         model.applySubgoals();
 
+        JFrame f = null;
+        if(use_gui){
+            f = createMainFrame();
+
+        }
         model.start();
         for(int layer = 0; layer < weightBags.size(); layer++){
             for(int neuron = 0; neuron < weightBags.get(layer).size(); neuron++){
@@ -46,16 +54,13 @@ public class SubSyne extends CoSyNe{
             ultimate_performance = getFitness();
 
             model = new Simulation(this);
-            JFrame f = new MainFrame(model);
             model.applySubgoals();
             model.start();
-            try {
-                Thread.sleep(Math.abs(1000));
-            } catch (java.lang.InterruptedException e) {
-                System.out.println(e.getMessage());
-            }
-            screenshot(0, (int) getFitness());
-            f.dispose();
+            takeScreenShot();
+        }
+
+        if (use_gui && f!=null){
+            disposeMainFrame(f);
         }
         model = new Simulation(this);
     }
@@ -85,6 +90,8 @@ public class SubSyne extends CoSyNe{
             previousaction = true;
         }
     }
+
+
 
     @Override
     protected int defN_generations() {
@@ -131,32 +138,16 @@ public class SubSyne extends CoSyNe{
      * Input is the scaled x&y difference to the next subgoal
      */
     protected double[] getInput() {
+        return getInput("WW");
+    }
+
+    protected double[] getInput(String goal) {
         if(model == null){
             model = new Simulation(this);
             model.applySubgoals();
         }
         Agent agent = model.getAgents().get(0);
-        Element goal = agent.subGoal.goal;
-
-
-        double[] output = new double[4];
-
-        if(agent.getX() > goal.getX()){
-            output[0] = 0;
-            output[1] = (agent.getX() - goal.getX() )/ (double) model.getParameter_manager().getWidth();
-        }else{
-            output[0] = (goal.getX() - agent.getX()) / (double) model.getParameter_manager().getWidth();
-            output[1] = 0;
-        }
-
-        if(agent.getY() > goal.getY()){
-            output[2] = 0;
-            output[3] = (agent.getY() - goal.getY()) / (double) model.getParameter_manager().getHeight();
-        }else{
-            output[2] = (goal.getY() - agent.getY()) / (double) model.getParameter_manager().getHeight();
-            output[3] = 0;
-        }
-        return output;
+        return new Features().getInputSet(model, agent, goal);
     }
 
     @Override
@@ -166,11 +157,34 @@ public class SubSyne extends CoSyNe{
      */
     protected double getFitness() {
         Fitness fit = new Fitness();
-        return  10 * (
-                (model.getAgents().get(0).subGoal.goal.getX() - model.getAgents().get(0).getX()) * (model.getAgents().get(0).subGoal.goal.getX() - model.getAgents().get(0).getX()) +
-                (model.getAgents().get(0).subGoal.goal.getY() - model.getAgents().get(0).getY()) * (model.getAgents().get(0).subGoal.goal.getY() - model.getAgents().get(0).getY()))
-                - 1000 *model.goalsHit  +
-                fit.totalFuelBurnt(model);
+        int[] costs = fit.totalCosts(model);
+        return  (costs[0]+costs[1]+costs[2]);
+    }
+
+    protected JFrame createMainFrame(){
+        JFrame f = new MainFrame(model);
+        sleep(1000);
+        return f;
+    }
+
+    protected void disposeMainFrame(JFrame f){
+        sleep(500);
+        f.dispose();
+    }
+
+    protected void sleep(int t){
+        try {
+            Thread.sleep(Math.abs(t));
+        } catch (java.lang.InterruptedException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    protected void takeScreenShot(){
+        JFrame f = createMainFrame();
+        sleep(500);
+        screenshot(0, (int) getFitness());
+        f.dispose();
     }
 
     @Override

@@ -30,7 +30,7 @@ public class DeepQLearner implements RLController, Serializable {
     private static int iter=0;
     private static int nrErrors = 0;
     protected int iterations = 2000;
-    protected float explorationRate = 0.10f;
+    protected float explorationRate;
     protected float exploreDiscount = explorationRate/iterations;
     protected float gamma = 0.1f;
     protected float alpha = 0.001f;
@@ -91,7 +91,7 @@ public class DeepQLearner implements RLController, Serializable {
 //            new AbstractMap.SimpleEntry<>("NN", 0.0),
 //            new AbstractMap.SimpleEntry<>("NW", 0.0))
 //            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-//
+
     private Map<String, InputCost> goalToCostMap= Stream.of(
             new AbstractMap.SimpleEntry<>("WW", new InputCost()),
             new AbstractMap.SimpleEntry<>("SW", new InputCost()),
@@ -102,6 +102,9 @@ public class DeepQLearner implements RLController, Serializable {
             new AbstractMap.SimpleEntry<>("NN", new InputCost()),
             new AbstractMap.SimpleEntry<>("NW", new InputCost()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    private HashMap<Agent, HashMap<String, List<IndexActLink>>> subGoalActivation;
+    private final List<String> subGoalKeys = Arrays.asList(new String[]{"WW", "SW", "SS", "SE", "EE", "NE", "NN", "NW"});
 
     public DeepQLearner(){
         SGC = new SubGoalController("CQL", model);
@@ -114,7 +117,7 @@ public class DeepQLearner implements RLController, Serializable {
             lowestCost = Integer.MAX_VALUE;
             costArr = new int[iterations][3];
             randSeed = 0;
-            explorationRate = 0.1f;
+            explorationRate = 0.3f;
 
 
             initNN();
@@ -140,6 +143,8 @@ public class DeepQLearner implements RLController, Serializable {
 
     private void trainMLP(){
         model = new Simulation(this, use_gui, randSeed);
+        SGC = new SubGoalController("CQL", model);
+        subGoalActivation = new HashMap<>();
         backup = model.getAgents().get(0);
 //        assignedGoals = new HashSet<>();
 
@@ -153,7 +158,9 @@ public class DeepQLearner implements RLController, Serializable {
         }
 
 
-        SGC.updateDistMap();
+
+        initSubGoalOrder();
+        //SGC.updateDistMap(subGoalActivation); //TODO: Somehow pass the output of the NN in this function, bud do this for each Sub Goal
 
 
         if ((debugging)&&use_gui){
@@ -198,6 +205,64 @@ public class DeepQLearner implements RLController, Serializable {
         }
     }
 
+    private void initSubGoalOrder(){ //TODO: If rand float< exploreRate -> make random dist array, otherwise use order of activations
+        for (Agent a:model.getAgents()){
+            HashMap<String, List<IndexActLink>> activationMap = new HashMap<>();
+            for (String s:subGoalKeys){
+                double [] outputSet  =getQ(getInputSet(s, a));
+
+                List<IndexActLink> outputList = determineOrder(outputSet);
+
+                activationMap.put(s, outputList);
+            }
+            subGoalActivation.put(a, activationMap);
+        }
+        printSubGoalActivation();
+    }
+
+
+    /**
+     * This is where to e-greedy search is implemented. The passed list is ordered according to activation in (1-e) of the cases
+     * In the other cases, a randomized list with replacement is returned.
+     * @param activation The activation according to which the list needs to be order that needs to ordered
+     * @return Ordered list
+     */
+    private List<IndexActLink> determineOrder(double[] activation){
+        List<IndexActLink> outputList = new LinkedList<>();
+
+        //For regular greedy-search, the index which had the lowest activation will be placed at the first location of list
+        for (int i = 0; i<activation.length; i++){
+            outputList.add(new IndexActLink(i, (float) activation[i]));
+        }
+
+        //For the e-part of the serach, there is an (1-e) chance that all indexes are randomized. no need to order it afterwards
+        if (rand.nextFloat()<explorationRate){
+            for (int i = 0; i<activation.length; i++){
+                outputList.get(i).index=rand.nextInt(activation.length);
+            }
+        } else {
+            outputList.sort(Comparator.comparing(IndexActLink::getActivation, Comparator.nullsLast(Comparator.naturalOrder())));
+        }
+
+        return outputList;
+    }
+
+
+    private void printSubGoalActivation(){
+        for (Agent a:model.getAgents()){
+            HashMap<String, List<IndexActLink>> act = subGoalActivation.get(a);
+            System.out.println("Sub-goals of agent #" + a.getId());
+            for (String s:subGoalKeys){
+                System.out.println("\nActivation of sub-goal " + s + ": ");
+                for (IndexActLink ial : act.get(s)) {
+                    System.out.print( ial.activation + "(" + ial.index + ") " );
+                }
+
+            }
+            System.out.println(" ");
+        }
+    }
+
     private void train(double[] oldState, double[] newState, int action, int reward){
 
         double[] oldValue = getQ(oldState);
@@ -231,7 +296,16 @@ public class DeepQLearner implements RLController, Serializable {
 
     @Override
     public void pickAction(Agent a) {
-        SGC.takeNextAction(a);
+        String action = SGC.getNextAction(a);
+        a.takeAction(action);
+        if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
+            SGC.removeGoalReached(a);
+            //subGoals.removeGoalReached(a);
+            backup = a;
+            if (debugging) {
+                System.out.println("Nr of Agents: " + model.getAgents().size());
+            }
+        }
 //        if (model.goalsHit<distMap.keySet().size()) {
 //            if (a.onGoal()) {
 //                assignedGoals.add(subGoals.getAgentGoals().get(a));
@@ -248,13 +322,7 @@ public class DeepQLearner implements RLController, Serializable {
 //                a.takeAction(nextAction);
 //            }
 //            // TODO: This piece of code is ugly as hell, come up with better solution
-//            if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
-//                subGoals.removeGoalReached(a);
-//                backup = a;
-//                if (debugging) {
-//                    System.out.println("Nr of Agents: " + model.getAgents().size());
-//                }
-//            }
+//
 //
 //            if (use_gui) {
 //                if (showActionFor > 0) {

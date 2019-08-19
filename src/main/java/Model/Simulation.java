@@ -165,7 +165,7 @@ public class Simulation extends Observable implements Serializable, Observer {
 	private void create_parameters() {
 		width = 20; //50
 		height = 20; //50
-		nr_agents = 1;
+		nr_agents = 3;
 		energyAgents = 50;
 		if (use_gui) {
 			step_time = 100;

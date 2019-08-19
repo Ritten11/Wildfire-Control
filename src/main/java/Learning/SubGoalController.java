@@ -91,7 +91,7 @@ public class SubGoalController implements Serializable {
 //            }
             double[] input = getInputSet(key, agent);
 
-            setDistance(input, key);
+//            setDistance(input, key);
 //
 //            System.out.println(key + " " + goalToCostMap.keySet().contains(key) + " size map: " + goalToCostMap.keySet().size());
             goalToCostMap.get(key).setStateX(input);
@@ -107,7 +107,7 @@ public class SubGoalController implements Serializable {
         }
     }
 
-    public void updateDistMap(){
+    public void updateDistMap(HashMap<Agent, HashMap<String, double[]>> subGoalActivation){
         for (Agent a:model.getAgents()){
             for (String key : distMap.keySet()){
                 updateDistMap(key, a);
@@ -116,88 +116,114 @@ public class SubGoalController implements Serializable {
         }
     }
 
-    public void takeNextAction(Agent a) {
+//    public void takeNextAction(Agent a) {
+//        if (model.goalsHit<distMap.keySet().size()) {
+//            if (a.onGoal()) {
+//                assignedGoals.add(subGoals.getAgentGoals().get(a));
+//                updateGoalsHit(a);
+//                updateDistMap(subGoals.getNextGoal(a), a);
+//                subGoals.setNextGoal(a);
+//            }
+//            String nextAction = a.subGoal.getNextAction();
+//            if (nextAction.equals("PathFailed")){
+//                subGoals.resetGoal(a);
+//                takeNextAction(a);
+//                return;
+//            } else {
+//                a.takeAction(nextAction);
+//            }
+//            // TODO: This piece of code is ugly as hell, come up with better solution
+//            if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
+//                subGoals.removeGoalReached(a);
+//                backup = a;
+//                if (debugging) {
+//                    System.out.println("Nr of Agents: " + model.getAgents().size());
+//                }
+//            }
+//        } else { //Once all goals have been reached, the agent should stop moving as there is no use for it anymore.
+//            a.takeAction("Do Nothing");
+//        }
+//    }
+
+    public String getNextAction(Agent a){
         if (model.goalsHit<distMap.keySet().size()) {
             if (a.onGoal()) {
                 assignedGoals.add(subGoals.getAgentGoals().get(a));
                 updateGoalsHit(a);
+
                 updateDistMap(subGoals.getNextGoal(a), a);
                 subGoals.setNextGoal(a);
             }
             String nextAction = a.subGoal.getNextAction();
             if (nextAction.equals("PathFailed")){
                 subGoals.resetGoal(a);
-                takeNextAction(a);
-                return;
+                return getNextAction(a);
             } else {
-                a.takeAction(nextAction);
+                return  nextAction;
             }
             // TODO: This piece of code is ugly as hell, come up with better solution
-            if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
-                subGoals.removeGoalReached(a);
-                backup = a;
-                if (debugging) {
-                    System.out.println("Nr of Agents: " + model.getAgents().size());
-                }
-            }
-
-            if (use_gui) {
-                if (showActionFor > 0) {
-                    sleep(showActionFor);
-                    showActionFor -= 0;
-                }
-            }
-        } else { //Once all goals have been reached, the agent should stop moving as there is no use for it anymore.
-            a.takeAction("Do Nothing");
-        }
-    }
-
-
-    public void setDistance(double in[], String key) {
-        float randFloat = rand.nextFloat();
-        int i = 0;
-//        int actionIndex;
-        List<IndexActLink> activationList = greedyLocation(in);
-//        do { //TODO: Implement Boltzmann-distributed Exploration: https://www.researchgate.net/publication/2502531_The_Role_Of_Exploration_In_Learning_Control
-//            actionIndex = boltzmannDistAct(activationList);
-//            subGoals.updateSubGoal(key,actionIndex);
-//
-//            Iterator<IndexActLink> iter = activationList.iterator();
-//            while(iter.hasNext()) {
-//                IndexActLink ial = iter.next();
-//                if (ial.index == actionIndex) {
-//                    iter.remove();
+//            if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
+//                subGoals.removeGoalReached(a);
+//                backup = a;
+//                if (debugging) {
+//                    System.out.println("Nr of Agents: " + model.getAgents().size());
 //                }
 //            }
-//
-//        } while (!subGoals.checkSubGoal(key, model.getAgents())&&!activationList.isEmpty());
-        if (randFloat > explorationRate) {
-            do {
-                subGoals.updateSubGoal(key, activationList.get(i).index);
-                i++;
-                if (debugging){
-                    if (i>7){
-                        System.out.println("ACTIVATIONLIST > 7 : " + activationList.size());
-                    }
-                }
-                if (i>=activationList.size()){
-                    resetSimulation("All locations invalid");
-                }
-
-            } while (!subGoals.checkSubGoal(key, model.getAgents()));
-        } else {
-            do {
-                if (i>=10){
-                    resetSimulation("Could not find suitable random location");
-                }
-                subGoals.updateSubGoal(key, randomLocation());
-                i++;
-            } while (!subGoals.checkSubGoal(key, model.getAgents()));
-        }
-        if (use_gui && (debugging)) {
-            subGoals.paintGoal(key);
+        } else { //Once all goals have been reached, the agent should stop moving as there is no use for it anymore.
+            return "Do Nothing";
         }
     }
+
+    public void removeGoalReached(Agent a){
+        subGoals.removeGoalReached(a);
+    }
+
+
+//    public void setDistance(double in[], String key) {
+//        float randFloat = rand.nextFloat();
+//        int i = 0;
+////        int actionIndex;
+//        List<IndexActLink> activationList = greedyLocation(in);
+////        do { //TODO: Implement Boltzmann-distributed Exploration: https://www.researchgate.net/publication/2502531_The_Role_Of_Exploration_In_Learning_Control
+////            actionIndex = boltzmannDistAct(activationList);
+////            subGoals.updateSubGoal(key,actionIndex);
+////
+////            Iterator<IndexActLink> iter = activationList.iterator();
+////            while(iter.hasNext()) {
+////                IndexActLink ial = iter.next();
+////                if (ial.index == actionIndex) {
+////                    iter.remove();
+////                }
+////            }
+////
+////        } while (!subGoals.checkSubGoal(key, model.getAgents())&&!activationList.isEmpty());
+//        if (randFloat > explorationRate) {
+//            do {
+//                subGoals.updateSubGoal(key, activationList.get(i).index);
+//                i++;
+//                if (debugging){
+//                    if (i>7){
+//                        System.out.println("ACTIVATIONLIST > 7 : " + activationList.size());
+//                    }
+//                }
+//                if (i>=activationList.size()){
+//                    resetSimulation("All locations invalid");
+//                }
+//
+//            } while (!subGoals.checkSubGoal(key, model.getAgents()));
+//        } else {
+//            do {
+//                if (i>=10){
+//                    resetSimulation("Could not find suitable random location");
+//                }
+//                subGoals.updateSubGoal(key, randomLocation());
+//                i++;
+//            } while (!subGoals.checkSubGoal(key, model.getAgents()));
+//        }
+//        if (use_gui && (debugging)) {
+//            subGoals.paintGoal(key);
+//        }
+//    }
 
     private int[] getCost(){
         int[] cost = fit.totalCosts(model);
@@ -284,47 +310,47 @@ public class SubGoalController implements Serializable {
         }
     }
 
-    private void resetSimulation(String error){
-        System.out.println("UNEXPECTED ERROR: (" + error + ") OCCURRED, DISCARDING CURRENT MODEL AND STARTING NEW");
-        nrErrors++;
-        System.out.println("Distance Map: " + Collections.singletonList(distMap));
-        takeScreenShot();
-        trainMLP();
-    }
+//    private void resetSimulation(String error){
+//        System.out.println("UNEXPECTED ERROR: (" + error + ") OCCURRED, DISCARDING CURRENT MODEL AND STARTING NEW");
+//        nrErrors++;
+//        System.out.println("Distance Map: " + Collections.singletonList(distMap));
+//        takeScreenShot();
+//        trainMLP();
+//    }
 
     private String dirGenerator(){
         return System.getProperty("user.dir") + "/results/Q-Learning/" + algorithm + "/" + model.getNr_agents() + "_agent_environment";
     }
 
-    private void writePerformanceFile(){
-        String dir = dirGenerator();
-        File file = new File(dir);
-        if (file.mkdirs() || file.isDirectory()) {
-            try {
-                FileWriter csvWriter = new FileWriter(dir + "/run" + run + ".csv");
-                csvWriter.append("Iteration");
-                csvWriter.append(",");
-                csvWriter.append("BurnCost");
-                csvWriter.append(",");
-                csvWriter.append("MoveCost");
-                csvWriter.append(",");
-                csvWriter.append("AgentDeathPenalty");
-                csvWriter.append("\n");
-
-                for (int i = 0; i< iterations; i++){
-                    csvWriter.append(i+","+costArr[i][0]+","+costArr[i][1]+","+costArr[i][2]+"\n");
-                }
-
-                csvWriter.flush();
-                csvWriter.close();
-            } catch (IOException e) {
-                System.out.println("Some IO-exception occurred");
-                e.printStackTrace();
-            }
-        } else {
-            System.out.println("Unable to make directory");
-        }
-    }
+//    private void writePerformanceFile(){
+//        String dir = dirGenerator();
+//        File file = new File(dir);
+//        if (file.mkdirs() || file.isDirectory()) {
+//            try {
+//                FileWriter csvWriter = new FileWriter(dir + "/run" + run + ".csv");
+//                csvWriter.append("Iteration");
+//                csvWriter.append(",");
+//                csvWriter.append("BurnCost");
+//                csvWriter.append(",");
+//                csvWriter.append("MoveCost");
+//                csvWriter.append(",");
+//                csvWriter.append("AgentDeathPenalty");
+//                csvWriter.append("\n");
+//
+//                for (int i = 0; i< iterations; i++){
+//                    csvWriter.append(i+","+costArr[i][0]+","+costArr[i][1]+","+costArr[i][2]+"\n");
+//                }
+//
+//                csvWriter.flush();
+//                csvWriter.close();
+//            } catch (IOException e) {
+//                System.out.println("Some IO-exception occurred");
+//                e.printStackTrace();
+//            }
+//        } else {
+//            System.out.println("Unable to make directory");
+//        }
+//    }
 
     public void printFinalDistMap(){
         System.out.println("Final distance Map: " + Collections.singletonList(distMap));

@@ -1,5 +1,6 @@
 package Learning;
 
+import Learning.DeepQ.DeepQLearner;
 import Learning.DeepQ.MLP;
 import Model.Agent;
 import Model.Simulation;
@@ -26,7 +27,7 @@ public class SubGoalController implements Serializable {
 
     //Variables needed for debugging:
     final static boolean use_gui = true;
-    final static boolean debugging = false;
+    final static boolean debugging = true;
     private final static int timeActionShown = 250;
     private int showActionFor;
     private long randSeed = 0;
@@ -63,7 +64,7 @@ public class SubGoalController implements Serializable {
             new AbstractMap.SimpleEntry<>("NN", 0.0),
             new AbstractMap.SimpleEntry<>("NW", 0.0))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
+//
     private Map<String, InputCost> goalToCostMap= Stream.of(
             new AbstractMap.SimpleEntry<>("WW", new InputCost()),
             new AbstractMap.SimpleEntry<>("SW", new InputCost()),
@@ -75,26 +76,34 @@ public class SubGoalController implements Serializable {
             new AbstractMap.SimpleEntry<>("NW", new InputCost()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    public SubGoalController(String method, Simulation model){
-        RLMethod = method;
+    public SubGoalController(String PFMethod, String RLMethod, Simulation model){
+        algorithm = PFMethod;
+        this.RLMethod = RLMethod;
         f = new Features();
         fit = new Fitness();
         this.model = model;
+
+        // init subGoals
+        double fireLocation[] = f.locationCenterFireAndMinMax(model);
+        subGoals = new OrthogonalSubGoals((int)fireLocation[0],(int)fireLocation[1], distMap, algorithm, model.getAllCells());
+
+        assignedGoals = new HashSet<>();
     }
 
 
-    public void updateDistMap(String key, Agent agent){
+
+    public void updateDistMap(String key, Agent agent, List<DeepQLearner.IndexActLink> list){
 
         if (!(subGoals.isGoalOfAgent(key)||assignedGoals.contains(key))) {
 //            if (debugging) {
 //                System.out.println("updating goal " + key + " for agent #" + agent.getId());
 //            }
-            double[] input = getInputSet(key, agent);
+//            double[] input = getInputSet(key, agent);
 
-//            setDistance(input, key);
+            setDistance(list, key);
 //
 //            System.out.println(key + " " + goalToCostMap.keySet().contains(key) + " size map: " + goalToCostMap.keySet().size());
-            goalToCostMap.get(key).setStateX(input);
+//            goalToCostMap.get(key).setStateX(input);
 //                double[] in = goalToCostMap.get(key).stateX;
 //                if (debugging) {
 //                    System.out.println("Input changed to " + Arrays.toString(goalToCostMap.get(key).stateX) + " from " + Arrays.toString(in));
@@ -107,10 +116,10 @@ public class SubGoalController implements Serializable {
         }
     }
 
-    public void updateDistMap(HashMap<Agent, HashMap<String, double[]>> subGoalActivation){
+    public void updateDistMap(HashMap<Agent, HashMap<String, List<DeepQLearner.IndexActLink>>> subGoalOrder){
         for (Agent a:model.getAgents()){
             for (String key : distMap.keySet()){
-                updateDistMap(key, a);
+                updateDistMap(key, a, subGoalOrder.get(a).get(key));
             }
             subGoals.selectClosestSubGoal(a);
         }
@@ -151,8 +160,9 @@ public class SubGoalController implements Serializable {
                 assignedGoals.add(subGoals.getAgentGoals().get(a));
                 updateGoalsHit(a);
 
-                updateDistMap(subGoals.getNextGoal(a), a);
-                subGoals.setNextGoal(a);
+                return "Update sub-goal";
+//                updateDistMap(subGoals.getNextGoal(a), a);
+//                subGoals.setNextGoal(a);
             }
             String nextAction = a.subGoal.getNextAction();
             if (nextAction.equals("PathFailed")){
@@ -179,51 +189,24 @@ public class SubGoalController implements Serializable {
     }
 
 
-//    public void setDistance(double in[], String key) {
-//        float randFloat = rand.nextFloat();
-//        int i = 0;
-////        int actionIndex;
-//        List<IndexActLink> activationList = greedyLocation(in);
-////        do { //TODO: Implement Boltzmann-distributed Exploration: https://www.researchgate.net/publication/2502531_The_Role_Of_Exploration_In_Learning_Control
-////            actionIndex = boltzmannDistAct(activationList);
-////            subGoals.updateSubGoal(key,actionIndex);
-////
-////            Iterator<IndexActLink> iter = activationList.iterator();
-////            while(iter.hasNext()) {
-////                IndexActLink ial = iter.next();
-////                if (ial.index == actionIndex) {
-////                    iter.remove();
-////                }
-////            }
-////
-////        } while (!subGoals.checkSubGoal(key, model.getAgents())&&!activationList.isEmpty());
-//        if (randFloat > explorationRate) {
-//            do {
-//                subGoals.updateSubGoal(key, activationList.get(i).index);
-//                i++;
-//                if (debugging){
-//                    if (i>7){
-//                        System.out.println("ACTIVATIONLIST > 7 : " + activationList.size());
-//                    }
-//                }
-//                if (i>=activationList.size()){
-//                    resetSimulation("All locations invalid");
-//                }
-//
-//            } while (!subGoals.checkSubGoal(key, model.getAgents()));
-//        } else {
-//            do {
-//                if (i>=10){
-//                    resetSimulation("Could not find suitable random location");
-//                }
-//                subGoals.updateSubGoal(key, randomLocation());
-//                i++;
-//            } while (!subGoals.checkSubGoal(key, model.getAgents()));
-//        }
-//        if (use_gui && (debugging)) {
-//            subGoals.paintGoal(key);
-//        }
-//    }
+    public void setDistance(List<DeepQLearner.IndexActLink> activationList, String key) {
+        int i = 0;
+           do {
+              subGoals.updateSubGoal(key, activationList.get(i).getIndex());
+              i++;
+              if (debugging){
+                  if (i>7){
+                      System.out.println("ACTIVATIONLIST > 7 : " + activationList.size());
+                  }
+              }
+              if (i>=activationList.size()){//TODO: Somehow reset the simulation
+//                  resetSimulation("All locations invalid");
+              }
+            } while (!subGoals.checkSubGoal(key, model.getAgents()));
+        if (use_gui && (debugging)) {
+            subGoals.paintGoal(key);
+        }
+    }
 
     private int[] getCost(){
         int[] cost = fit.totalCosts(model);
@@ -351,7 +334,7 @@ public class SubGoalController implements Serializable {
 //            System.out.println("Unable to make directory");
 //        }
 //    }
-
+//
     public void printFinalDistMap(){
         System.out.println("Final distance Map: " + Collections.singletonList(distMap));
         System.out.println("Final number of sub goals assigned: " + goalToCostMap.keySet().size());
@@ -364,27 +347,35 @@ public class SubGoalController implements Serializable {
         return distMap.get(key);
     }
 
-    /**
-     * Class needed to order a list containing the index of the distance and the activation of that distance.
-     */
-    public class IndexActLink{
-        private int index;
-        private float activation;
-
-        private IndexActLink(int i, float a){
-            index=i;
-            activation=a;
-        }
-
-        private double getActivation() {
-            return activation;
-        }
-
-        public int getIndex() {
-            return index;
-        }
+    public String getNextGoal(Agent a){
+        return subGoals.getNextGoal(a);
     }
 
+    public void setNextGoal(Agent a){
+        subGoals.setNextGoal(a);
+    }
+//
+//    /**
+//     * Class needed to order a list containing the index of the distance and the activation of that distance.
+//     */
+//    public class IndexActLink{
+//        private int index;
+//        private float activation;
+//
+//        private IndexActLink(int i, float a){
+//            index=i;
+//            activation=a;
+//        }
+//
+//        private double getActivation() {
+//            return activation;
+//        }
+//
+//        public int getIndex() {
+//            return index;
+//        }
+//    }
+//
     class InputCost{
         double[] stateX;
         double[] stateXPrime;

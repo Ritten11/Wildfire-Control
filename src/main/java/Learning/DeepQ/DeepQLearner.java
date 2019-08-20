@@ -107,7 +107,6 @@ public class DeepQLearner implements RLController, Serializable {
     private final List<String> subGoalKeys = Arrays.asList(new String[]{"WW", "SW", "SS", "SE", "EE", "NE", "NN", "NW"});
 
     public DeepQLearner(){
-        SGC = new SubGoalController("CQL", model);
         f = new Features();
         fit = new Fitness();
         rand = new Random();
@@ -143,7 +142,7 @@ public class DeepQLearner implements RLController, Serializable {
 
     private void trainMLP(){
         model = new Simulation(this, use_gui, randSeed);
-        SGC = new SubGoalController("CQL", model);
+        SGC = new SubGoalController(algorithm, "CQL", model);
         subGoalActivation = new HashMap<>();
         backup = model.getAgents().get(0);
 //        assignedGoals = new HashSet<>();
@@ -160,7 +159,10 @@ public class DeepQLearner implements RLController, Serializable {
 
 
         initSubGoalOrder();
-        //SGC.updateDistMap(subGoalActivation); //TODO: Somehow pass the output of the NN in this function, bud do this for each Sub Goal
+        SGC.updateDistMap(subGoalActivation);
+
+        //TODO: update cost-map
+        //updateCostMap
 
 
         if ((debugging)&&use_gui){
@@ -209,7 +211,7 @@ public class DeepQLearner implements RLController, Serializable {
         for (Agent a:model.getAgents()){
             HashMap<String, List<IndexActLink>> activationMap = new HashMap<>();
             for (String s:subGoalKeys){
-                double [] outputSet  =getQ(getInputSet(s, a));
+                double [] outputSet = getQ(getInputSet(s, a));
 
                 List<IndexActLink> outputList = determineOrder(outputSet);
 
@@ -297,6 +299,14 @@ public class DeepQLearner implements RLController, Serializable {
     @Override
     public void pickAction(Agent a) {
         String action = SGC.getNextAction(a);
+        if (action.equals("Update sub-goal")){
+            String nextGoal = SGC.getNextGoal(a);
+            double[] activation = getQ(getInputSet(nextGoal,a));
+            SGC.updateDistMap(nextGoal, a, determineOrder(activation));
+            SGC.setNextGoal(a);
+            System.out.println("After this point, shit will break");
+            action = SGC.getNextAction(a);
+        }
         a.takeAction(action);
         if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
             SGC.removeGoalReached(a);
@@ -304,6 +314,12 @@ public class DeepQLearner implements RLController, Serializable {
             backup = a;
             if (debugging) {
                 System.out.println("Nr of Agents: " + model.getAgents().size());
+            }
+        }
+        if (use_gui) {
+            if (showActionFor > 0) {
+                sleep(showActionFor);
+                showActionFor -= 0;
             }
         }
 //        if (model.goalsHit<distMap.keySet().size()) {
@@ -324,12 +340,7 @@ public class DeepQLearner implements RLController, Serializable {
 //            // TODO: This piece of code is ugly as hell, come up with better solution
 //
 //
-//            if (use_gui) {
-//                if (showActionFor > 0) {
-//                    sleep(showActionFor);
-//                    showActionFor -= 0;
-//                }
-//            }
+
 //        } else { //Once all goals have been reached, the agent should stop moving as there is no use for it anymore.
 //            a.takeAction("Do Nothing");
 //        }
@@ -553,7 +564,7 @@ public class DeepQLearner implements RLController, Serializable {
     /**
      * Class needed to order a list containing the index of the distance and the activation of that distance.
      */
-    private class IndexActLink{
+    public class IndexActLink{
         private int index;
         private float activation;
 
@@ -571,7 +582,7 @@ public class DeepQLearner implements RLController, Serializable {
         }
     }
 
-    class InputCost{
+    public class InputCost{
         double[] stateX;
         double[] stateXPrime;
         int cost;

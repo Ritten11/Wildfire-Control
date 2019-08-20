@@ -26,8 +26,8 @@ public class SubGoalController implements Serializable {
     private Simulation model;
 
     //Variables needed for debugging:
-    final static boolean use_gui = true;
-    final static boolean debugging = true;
+    private boolean use_gui;
+    private boolean debugging;
     private final static int timeActionShown = 250;
     private int showActionFor;
     private long randSeed = 0;
@@ -76,8 +76,10 @@ public class SubGoalController implements Serializable {
             new AbstractMap.SimpleEntry<>("NW", new InputCost()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    public SubGoalController(String PFMethod, String RLMethod, Simulation model){
+    public SubGoalController(String PFMethod, String RLMethod, Simulation model, boolean use_gui, boolean debugging){
         algorithm = PFMethod;
+        this.use_gui = use_gui;
+        this.debugging = debugging;
         this.RLMethod = RLMethod;
         f = new Features();
         fit = new Fitness();
@@ -98,21 +100,21 @@ public class SubGoalController implements Serializable {
 //            if (debugging) {
 //                System.out.println("updating goal " + key + " for agent #" + agent.getId());
 //            }
-//            double[] input = getInputSet(key, agent);
+            double[] input = getInputSet(key, agent);
 
             setDistance(list, key);
 //
 //            System.out.println(key + " " + goalToCostMap.keySet().contains(key) + " size map: " + goalToCostMap.keySet().size());
-//            goalToCostMap.get(key).setStateX(input);
+            goalToCostMap.get(key).setStateX(input);
 //                double[] in = goalToCostMap.get(key).stateX;
 //                if (debugging) {
 //                    System.out.println("Input changed to " + Arrays.toString(goalToCostMap.get(key).stateX) + " from " + Arrays.toString(in));
 //                }
 
         } else {
-//            if (debugging) {
-//                System.out.println("Not updating goal already assigned to/reached by other agent -> ");
-//            }
+            if (debugging) {
+                System.out.println("Not updating goal already assigned to/reached by other agent -> ");
+            }
         }
     }
 
@@ -122,6 +124,7 @@ public class SubGoalController implements Serializable {
                 updateDistMap(key, a, subGoalOrder.get(a).get(key));
             }
             subGoals.selectClosestSubGoal(a);
+            goalToCostMap.get(subGoals.getAgentGoals().get(a)).setStateX(getInputSet(subGoals.getNextGoal(a),a));
         }
     }
 
@@ -354,7 +357,12 @@ public class SubGoalController implements Serializable {
     public void setNextGoal(Agent a){
         subGoals.setNextGoal(a);
     }
-//
+
+    public Map<String, InputCost> getGoalToCostMap() {
+        return goalToCostMap;
+    }
+
+    //
 //    /**
 //     * Class needed to order a list containing the index of the distance and the activation of that distance.
 //     */
@@ -376,7 +384,7 @@ public class SubGoalController implements Serializable {
 //        }
 //    }
 //
-    class InputCost{
+    public class InputCost{
         double[] stateX;
         double[] stateXPrime;
         int cost;
@@ -391,8 +399,20 @@ public class SubGoalController implements Serializable {
             this.stateXPrime = stateXPrime;
         }
 
-        private void setCost(int cost){
+        public void setCost(int cost){
             this.cost = cost;
+        }
+
+        public double[] getStateX() {
+            return stateX;
+        }
+
+        public double[] getStateXPrime() {
+            return stateXPrime;
+        }
+
+        public int getCost() {
+            return cost;
         }
     }
 

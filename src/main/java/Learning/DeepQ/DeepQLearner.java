@@ -29,7 +29,7 @@ public class DeepQLearner implements RLController, Serializable {
     private int run=0;
     private static int iter=0;
     private static int nrErrors = 0;
-    protected int iterations = 2000;
+    protected int iterations = 500;
     protected float explorationRate;
     protected float exploreDiscount = explorationRate/iterations;
     protected float gamma = 0.1f;
@@ -53,7 +53,7 @@ public class DeepQLearner implements RLController, Serializable {
     private Simulation model;
 
     //Variables needed for debugging:
-    final static boolean use_gui = true;
+    final static boolean use_gui = false;
     final static boolean debugging = false;
     private final static int timeActionShown = 250;
     private int showActionFor;
@@ -78,30 +78,6 @@ public class DeepQLearner implements RLController, Serializable {
     private Features f;
     private int lowestCost;
     private int[][] costArr;
-
-//    private HashSet<String> assignedGoals;
-//
-//    private Map<String,Double> distMap = Stream.of(
-//            new AbstractMap.SimpleEntry<>("WW", 0.0),
-//            new AbstractMap.SimpleEntry<>("SW", 0.0),
-//            new AbstractMap.SimpleEntry<>("SS", 0.0),
-//            new AbstractMap.SimpleEntry<>("SE", 0.0),
-//            new AbstractMap.SimpleEntry<>("EE", 0.0),
-//            new AbstractMap.SimpleEntry<>("NE", 0.0),
-//            new AbstractMap.SimpleEntry<>("NN", 0.0),
-//            new AbstractMap.SimpleEntry<>("NW", 0.0))
-//            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-    private Map<String, InputCost> goalToCostMap= Stream.of(
-            new AbstractMap.SimpleEntry<>("WW", new InputCost()),
-            new AbstractMap.SimpleEntry<>("SW", new InputCost()),
-            new AbstractMap.SimpleEntry<>("SS", new InputCost()),
-            new AbstractMap.SimpleEntry<>("SE", new InputCost()),
-            new AbstractMap.SimpleEntry<>("EE", new InputCost()),
-            new AbstractMap.SimpleEntry<>("NE", new InputCost()),
-            new AbstractMap.SimpleEntry<>("NN", new InputCost()),
-            new AbstractMap.SimpleEntry<>("NW", new InputCost()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
     private HashMap<Agent, HashMap<String, List<IndexActLink>>> subGoalActivation;
     private final List<String> subGoalKeys = Arrays.asList(new String[]{"WW", "SW", "SS", "SE", "EE", "NE", "NN", "NW"});
@@ -142,7 +118,7 @@ public class DeepQLearner implements RLController, Serializable {
 
     private void trainMLP(){
         model = new Simulation(this, use_gui, randSeed);
-        SGC = new SubGoalController(algorithm, "CQL", model);
+        SGC = new SubGoalController(algorithm, "CQL", model, use_gui, debugging);
         subGoalActivation = new HashMap<>();
         backup = model.getAgents().get(0);
 //        assignedGoals = new HashSet<>();
@@ -161,23 +137,20 @@ public class DeepQLearner implements RLController, Serializable {
         initSubGoalOrder();
         SGC.updateDistMap(subGoalActivation);
 
-        //TODO: update cost-map
-        //updateCostMap
-
-
         if ((debugging)&&use_gui){
             //model.applyUpdates();
             sleep(500);
-            SGC.screenshot(run, iter);
+            //SGC.screenshot(run, iter);
         }
 
         model.start();
         if (debugging){
             SGC.printFinalDistMap();
+           // printGoalToCoastMap();
         }
         int[] costArr = getCost();
         int cost = costArr[0] + costArr[1] + costArr[2];
-        for (InputCost inputCost:goalToCostMap.values()){
+        for (SubGoalController.InputCost inputCost:SGC.getGoalToCostMap().values()){
             inputCost.setCost(cost);
         }
 
@@ -190,15 +163,17 @@ public class DeepQLearner implements RLController, Serializable {
             model.getAgents().add(backup);
         }
 
-        for (Map.Entry<String, InputCost> entry: goalToCostMap.entrySet()){
+        for (Map.Entry<String, SubGoalController.InputCost> entry: SGC.getGoalToCostMap().entrySet()){
             String key = entry.getKey();
-            InputCost ic = entry.getValue();
-            if (ic.stateXPrime==null){ //If the goal has not been reached, set the result of that goal to the default feature vector
+            SubGoalController.InputCost ic = entry.getValue();
+            if (ic.getStateXPrime()==null){ //If the goal has not been reached, set the result of that goal to the default feature vector
                 ic.setStateXPrime(getInputSet("WW", model.getAgents().get(0)));
-                System.out.println("updated next state of " + key + " to: " + Arrays.toString(ic.stateXPrime));
+                if (debugging) {
+                    System.out.println("updated next state of " + key + " to: " + Arrays.toString(ic.getStateXPrime()));
+                }
             }
             double action = SGC.getDist(key);
-            train(ic.stateX, ic.stateXPrime, Math.toIntExact(Math.round(action)), ic.cost);
+            train(ic.getStateX(), ic.getStateXPrime(), Math.toIntExact(Math.round(action)), ic.getCost());
 
         }
 
@@ -219,7 +194,9 @@ public class DeepQLearner implements RLController, Serializable {
             }
             subGoalActivation.put(a, activationMap);
         }
-        printSubGoalActivation();
+        if (debugging) {
+            printSubGoalActivation();
+        }
     }
 
 
@@ -237,7 +214,7 @@ public class DeepQLearner implements RLController, Serializable {
             outputList.add(new IndexActLink(i, (float) activation[i]));
         }
 
-        //For the e-part of the serach, there is an (1-e) chance that all indexes are randomized. no need to order it afterwards
+        //For the e-part of the search, there is an (1-e) chance that all indexes are randomized. no need to order it afterwards
         if (rand.nextFloat()<explorationRate){
             for (int i = 0; i<activation.length; i++){
                 outputList.get(i).index=rand.nextInt(activation.length);
@@ -269,7 +246,7 @@ public class DeepQLearner implements RLController, Serializable {
 
         double[] oldValue = getQ(oldState);
 
-//        System.out.println(Arrays.toString(oldState)+" -> " +Arrays.toString(oldValue));
+        System.out.println(Arrays.toString(oldState)+" -> " +Arrays.toString(oldValue));
 
         double[] newValue = getQ(newState);
 
@@ -284,16 +261,16 @@ public class DeepQLearner implements RLController, Serializable {
         batchNr++;
 
         if (batchNr%batchSize==0){
-//            System.out.println("Updating MLP");
-//            if (debugging){
-//                System.out.println("For action: " + action);
-//            }
+            System.out.println("Updating MLP");
+            if (debugging){
+                System.out.println("For action: " + action);
+            }
             batchNr = 0;
             mlp.updateMLP(inputBatch, outputBatch);
         }
 
         oldValue = getQ(oldState);
-//        System.out.println(Arrays.toString(oldState)+" -> "+Arrays.toString(oldValue));
+        System.out.println(Arrays.toString(oldState)+" -> "+Arrays.toString(oldValue));
     }
 
     @Override
@@ -304,13 +281,11 @@ public class DeepQLearner implements RLController, Serializable {
             double[] activation = getQ(getInputSet(nextGoal,a));
             SGC.updateDistMap(nextGoal, a, determineOrder(activation));
             SGC.setNextGoal(a);
-            System.out.println("After this point, shit will break");
             action = SGC.getNextAction(a);
         }
         a.takeAction(action);
         if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
             SGC.removeGoalReached(a);
-            //subGoals.removeGoalReached(a);
             backup = a;
             if (debugging) {
                 System.out.println("Nr of Agents: " + model.getAgents().size());
@@ -319,31 +294,9 @@ public class DeepQLearner implements RLController, Serializable {
         if (use_gui) {
             if (showActionFor > 0) {
                 sleep(showActionFor);
-                showActionFor -= 0;
+                showActionFor -= 1;
             }
         }
-//        if (model.goalsHit<distMap.keySet().size()) {
-//            if (a.onGoal()) {
-//                assignedGoals.add(subGoals.getAgentGoals().get(a));
-//                updateGoalsHit(a);
-//                SGC.updateDistMap(subGoals.getNextGoal(a), a);
-//                subGoals.setNextGoal(a);
-//            }
-//            String nextAction = a.subGoal.getNextAction();
-//            if (nextAction.equals("PathFailed")){
-//                subGoals.resetGoal(a);
-//                pickAction(a);
-//                return;
-//            } else {
-//                a.takeAction(nextAction);
-//            }
-//            // TODO: This piece of code is ugly as hell, come up with better solution
-//
-//
-
-//        } else { //Once all goals have been reached, the agent should stop moving as there is no use for it anymore.
-//            a.takeAction("Do Nothing");
-//        }
     }
 
     private void initNN(){
@@ -360,32 +313,6 @@ public class DeepQLearner implements RLController, Serializable {
         outputBatch = new double[batchSize][sizeOutput];
 
         mlp = new MLP(sizeInput, sizeHidden, sizeOutput, alpha, batchSize, new Random().nextLong());
-    }
-
-
-
-    protected List<IndexActLink> greedyLocation(double[] state){
-        double[] outputSet = getQ(state);
-
-//        if (debugging) {
-//            System.out.println("New activation output: " + Arrays.toString(outputSet));
-//        }
-        List<IndexActLink> outputList = new LinkedList<>();
-
-        for (int i = 0; i<outputSet.length; i++){
-            outputList.add(new IndexActLink(i, (float) outputSet[i]));
-        }
-
-        outputList.sort(Comparator.comparing(IndexActLink::getActivation, Comparator.nullsLast(Comparator.naturalOrder())));
-
-//        if (debugging){
-//            System.out.println("Optimal option: " + outputList.get(0).index);
-//        }
-        return outputList;
-    }
-
-    protected int randomLocation(){
-        return rand.nextInt(sizeOutput);
     }
 
     protected int boltzmannDistAct(List<IndexActLink> activationList){
@@ -416,6 +343,7 @@ public class DeepQLearner implements RLController, Serializable {
     }
 
     private double[] getQ(double[] in){
+
         double input[][] = new double[1][in.length];
         for (int i = 0; i<in.length; i++){
             input[0][i] = in[i];
@@ -560,6 +488,12 @@ public class DeepQLearner implements RLController, Serializable {
             System.out.println("Unable to make directory");
         }
     }
+//
+//    private void printGoalToCoastMap(){
+//        for (String s:goalToCostMap.keySet()){
+//            System.out.println("Result for goal " + s + ": " + goalToCostMap.get(s).toString());
+//        }
+//    }
 
     /**
      * Class needed to order a list containing the index of the distance and the activation of that distance.
@@ -581,24 +515,33 @@ public class DeepQLearner implements RLController, Serializable {
             return index;
         }
     }
-
-    public class InputCost{
-        double[] stateX;
-        double[] stateXPrime;
-        int cost;
-
-        private InputCost(){}
-
-        public void setStateX(double[] stateX){
-            this.stateX = stateX;
-        }
-
-        public void setStateXPrime(double[] stateXPrime) {
-            this.stateXPrime = stateXPrime;
-        }
-
-        private void setCost(int cost){
-            this.cost = cost;
-        }
-    }
+//
+//    public class InputCost{
+//        double[] stateX;
+//        double[] stateXPrime;
+//        int cost;
+//
+//        private InputCost(){}
+//
+//        public void setStateX(double[] stateX){
+//            this.stateX = stateX;
+//        }
+//
+//        public void setStateXPrime(double[] stateXPrime) {
+//            this.stateXPrime = stateXPrime;
+//        }
+//
+//        private void setCost(int cost){
+//            this.cost = cost;
+//        }
+//
+//        @Override
+//        public String toString() {
+//            return "InputCost{" +
+//                    "stateX=" + Arrays.toString(stateX) +
+//                    ", stateXPrime=" + Arrays.toString(stateXPrime) +
+//                    ", cost=" + cost +
+//                    '}';
+//        }
+//    }
 }

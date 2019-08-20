@@ -120,6 +120,10 @@ public class MLP implements Serializable {
         System.out.println("Output bias");
         np.printMatrix(outputBias);
     }
+
+    public void printOutputBias(){
+        np.printMatrix(outputBias);
+    }
 }
 
 /**

@@ -1,23 +1,15 @@
 package Learning.DeepQ;
 
-import Learning.Features;
-import Learning.Fitness;
 import Learning.RLController;
 import Learning.SubGoalController;
 import Model.Agent;
 import Model.Simulation;
-import Navigation.OrthogonalSubGoals;
 import View.MainFrame;
 
-import javax.imageio.ImageIO;
 import javax.swing.*;
-import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.*;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 
 /**
@@ -25,13 +17,6 @@ import java.util.stream.Stream;
  * Not the function of this class: subgoal management.
  */
 public class DeepQLearner extends SubGoalController implements RLController, Serializable {
-    private final int max_runs = 20;
-    private int run=0;
-    private static int iter=0;
-    private static int nrErrors = 0;
-    protected int iterations = 500;
-    protected float explorationRate;
-    protected float exploreDiscount = explorationRate/iterations;
     protected float gamma = 0.1f;
     protected float alpha = 0.001f;
 
@@ -53,11 +38,6 @@ public class DeepQLearner extends SubGoalController implements RLController, Ser
     private Simulation model;
 
     //Variables needed for debugging:
-    final static boolean use_gui = false;
-    final static boolean debugging = false;
-    private final static int timeActionShown = 250;
-    private int showActionFor;
-    private long randSeed = 0;
     /* IF RANDOM SEED IN SIMULATION CLASS == 0
      0 -> d=0
      1 -> d=5
@@ -72,50 +52,15 @@ public class DeepQLearner extends SubGoalController implements RLController, Ser
     private Agent backup; //If the final agent has died, the MLP still needs an agent to determine the inputVector of the MLP
 
     //Fields for functionality of navigation and fitness
-    private String algorithm = "Bresenham";
-    private Fitness fit;
-    private Features f;
     private int lowestCost;
     private int[][] costArr;
 
-    private HashMap<Agent, HashMap<String, List<IndexActLink>>> subGoalActivation;
-    private final List<String> subGoalKeys = Arrays.asList(new String[]{"WW", "SW", "SS", "SE", "EE", "NE", "NN", "NW"});
 
     public DeepQLearner(){
-        f = new Features();
-        fit = new Fitness();
-        rand = new Random();
-        while (run<max_runs) {
-            run++;
-            System.out.println("=====================STARTING RUN #" + run + "==================");
-            lowestCost = Integer.MAX_VALUE;
-            costArr = new int[iterations][3];
-            randSeed = 0;
-            explorationRate = 0.3f;
-
-
-            initNN();
-
-            for (iter = 0; iter < iterations; iter++) {
-                randSeed++;
-                showActionFor = timeActionShown;
-                trainMLP();
-                costArr[iter] = getCost();
-                if (explorationRate > 0) {
-                    explorationRate -= exploreDiscount;
-                }
-            }
-
-            writePerformanceFile();
-
-            if (nrErrors != 0) {
-                System.out.println("Total # of errors occurred: " + nrErrors);
-            }
-        }
-
+        super();
     }
 
-    private void trainMLP(){
+    protected void train(){
         model = new Simulation(this, use_gui, randSeed);
         //SGC = new SubGoalController(algorithm, "CQL", model, rand,  use_gui, debugging);
         subGoalActivation = new HashMap<>();
@@ -274,7 +219,7 @@ public class DeepQLearner extends SubGoalController implements RLController, Ser
         }
     }
 
-    private void initNN(){
+    protected void initRL(){
         model = new Simulation(this);
 
         double[] fire=f.locationCenterFireAndMinMax(model);
@@ -329,6 +274,10 @@ public class DeepQLearner extends SubGoalController implements RLController, Ser
             output[i] = activation[i][0];
         }
         return output;
+    }
+
+    protected double[] getOutput(double[] input){
+        return getQ(input);
     }
 
     private void addToInputBatch(double in[]){
@@ -408,41 +357,11 @@ public class DeepQLearner extends SubGoalController implements RLController, Ser
 //        nrErrors++;
 //        System.out.println("Distance Map: " + Collections.singletonList(distMap));
 //        takeScreenShot();
-//        trainMLP();
+//        train();
 //    }
 
     private String dirGenerator(){
         return System.getProperty("user.dir") + "/results/Q-Learning/" + algorithm + "/" + model.getNr_agents() + "_agent_environment";
-    }
-
-    private void writePerformanceFile(){
-        String dir = dirGenerator();
-        File file = new File(dir);
-        if (file.mkdirs() || file.isDirectory()) {
-            try {
-                FileWriter csvWriter = new FileWriter(dir + "/run" + run + ".csv");
-                csvWriter.append("Iteration");
-                csvWriter.append(",");
-                csvWriter.append("BurnCost");
-                csvWriter.append(",");
-                csvWriter.append("MoveCost");
-                csvWriter.append(",");
-                csvWriter.append("AgentDeathPenalty");
-                csvWriter.append("\n");
-
-                for (int i = 0; i< iterations; i++){
-                    csvWriter.append(i+","+costArr[i][0]+","+costArr[i][1]+","+costArr[i][2]+"\n");
-                }
-
-                csvWriter.flush();
-                csvWriter.close();
-            } catch (IOException e) {
-                System.out.println("Some IO-exception occurred");
-                e.printStackTrace();
-            }
-        } else {
-            System.out.println("Unable to make directory");
-        }
     }
 //
 //    private void printGoalToCoastMap(){

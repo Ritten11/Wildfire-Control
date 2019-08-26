@@ -20,17 +20,25 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-abstract class SubGoalController implements Serializable {
+public abstract class SubGoalController implements Serializable {
+
+    private final int max_runs = 20;
+    private int run=0;
+    protected static int iter=0;
+    private static int nrErrors = 0;
+    protected int iterations = 500;
+    protected float explorationRate;
+    protected float exploreDiscount = explorationRate/iterations;
 
     private OrthogonalSubGoals subGoals;
     private Simulation model;
 
     //Variables needed for debugging:
-    private boolean use_gui;
-    private boolean debugging;
-    private final static int timeActionShown = 250;
-    private int showActionFor;
-    private long randSeed = 0;
+    protected final static boolean use_gui = false;
+    protected final static boolean debugging = false;
+    protected final static int timeActionShown = 250;
+    protected int showActionFor;
+    protected long randSeed = 0;
     /* IF RANDOM SEED IN SIMULATION CLASS == 0
      0 -> d=0
      1 -> d=5
@@ -45,15 +53,16 @@ abstract class SubGoalController implements Serializable {
     private Agent backup; //If the final agent has died, the MLP still needs an agent to determine the inputVector of the MLP
 
     //Fields for functionality of navigation and fitness
-    private String algorithm = "Bresenham";
-    private String RLMethod;
-    private Fitness fit;
-    private Features f;
+    protected String algorithm = "Bresenham";
+    protected Fitness fit;
+    protected Features f;
     private int lowestCost;
     private int[][] costArr;
     private Random rand;
 
-    private HashSet<String> assignedGoals;
+    protected HashSet<String> assignedGoals;
+    protected HashMap<Agent, HashMap<String, List<IndexActLink>>> subGoalActivation;
+    protected final List<String> subGoalKeys = Arrays.asList(new String[]{"WW", "SW", "SS", "SE", "EE", "NE", "NN", "NW"});
 
     private Map<String,Double> distMap = Stream.of(
             new AbstractMap.SimpleEntry<>("WW", 0.0),
@@ -77,21 +86,45 @@ abstract class SubGoalController implements Serializable {
             new AbstractMap.SimpleEntry<>("NW", new InputCost()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    public SubGoalController(String PFMethod, String RLMethod, Simulation model, Random rand, boolean use_gui, boolean debugging){
-        algorithm = PFMethod;
-        this.use_gui = use_gui;
-        this.debugging = debugging;
-        this.RLMethod = RLMethod;
-        this.rand = rand;
+    public SubGoalController(){
         f = new Features();
         fit = new Fitness();
-        this.model = model;
+        rand = new Random();
+        this.model = new Simulation(false);
 
         // init subGoals
         double fireLocation[] = f.locationCenterFireAndMinMax(model);
         subGoals = new OrthogonalSubGoals((int)fireLocation[0],(int)fireLocation[1], distMap, algorithm, model.getAllCells());
 
         assignedGoals = new HashSet<>();
+
+        while (run<max_runs) {
+            run++;
+            System.out.println("=====================STARTING RUN #" + run + "==================");
+            lowestCost = Integer.MAX_VALUE;
+            costArr = new int[iterations][3];
+            randSeed = 0;
+            explorationRate = 0.3f;
+
+
+            initRL();
+
+            for (iter = 0; iter < iterations; iter++) {
+                randSeed++;
+                showActionFor = timeActionShown;
+                train();
+                costArr[iter] = getCost();
+                if (explorationRate > 0) {
+                    explorationRate -= exploreDiscount;
+                }
+            }
+
+            writePerformanceFile();
+
+            if (nrErrors != 0) {
+                System.out.println("Total # of errors occurred: " + nrErrors);
+            }
+        }
     }
 
 
@@ -339,6 +372,36 @@ abstract class SubGoalController implements Serializable {
         }
     }
 
+    private void writePerformanceFile(){
+        String dir = dirGenerator();
+        File file = new File(dir);
+        if (file.mkdirs() || file.isDirectory()) {
+            try {
+                FileWriter csvWriter = new FileWriter(dir + "/run" + run + ".csv");
+                csvWriter.append("Iteration");
+                csvWriter.append(",");
+                csvWriter.append("BurnCost");
+                csvWriter.append(",");
+                csvWriter.append("MoveCost");
+                csvWriter.append(",");
+                csvWriter.append("AgentDeathPenalty");
+                csvWriter.append("\n");
+
+                for (int i = 0; i< iterations; i++){
+                    csvWriter.append(i+","+costArr[i][0]+","+costArr[i][1]+","+costArr[i][2]+"\n");
+                }
+
+                csvWriter.flush();
+                csvWriter.close();
+            } catch (IOException e) {
+                System.out.println("Some IO-exception occurred");
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("Unable to make directory");
+        }
+    }
+
     private void updateGoalsHit(Agent agent){
         if (agent.isCutting()){
             model.goalsHit++;
@@ -399,7 +462,11 @@ abstract class SubGoalController implements Serializable {
         }
     }
 
-    abstract double[] getOutput(double[] input);
+    protected abstract double[] getOutput(double[] input);
+
+    protected abstract void train();
+
+    protected abstract void initRL();
 
     public double getDist(String key){
         return distMap.get(key);

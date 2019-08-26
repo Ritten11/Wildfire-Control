@@ -24,7 +24,7 @@ import java.util.stream.Stream;
  * Function of this class: Produce an array or HashSet containing the distances between subgoals and center of fire
  * Not the function of this class: subgoal management.
  */
-public class DeepQLearner implements RLController, Serializable {
+public class DeepQLearner extends SubGoalController implements RLController, Serializable {
     private final int max_runs = 20;
     private int run=0;
     private static int iter=0;
@@ -73,7 +73,6 @@ public class DeepQLearner implements RLController, Serializable {
 
     //Fields for functionality of navigation and fitness
     private String algorithm = "Bresenham";
-    private SubGoalController SGC;
     private Fitness fit;
     private Features f;
     private int lowestCost;
@@ -118,7 +117,7 @@ public class DeepQLearner implements RLController, Serializable {
 
     private void trainMLP(){
         model = new Simulation(this, use_gui, randSeed);
-        SGC = new SubGoalController(algorithm, "CQL", model, use_gui, debugging);
+        //SGC = new SubGoalController(algorithm, "CQL", model, rand,  use_gui, debugging);
         subGoalActivation = new HashMap<>();
         backup = model.getAgents().get(0);
 //        assignedGoals = new HashSet<>();
@@ -135,7 +134,7 @@ public class DeepQLearner implements RLController, Serializable {
 
 
         initSubGoalOrder();
-        SGC.updateDistMap(subGoalActivation);
+        updateDistMap(subGoalActivation);
 
         if ((debugging)&&use_gui){
             //model.applyUpdates();
@@ -145,12 +144,12 @@ public class DeepQLearner implements RLController, Serializable {
 
         model.start();
         if (debugging){
-            SGC.printFinalDistMap();
+            printFinalDistMap();
            // printGoalToCoastMap();
         }
         int[] costArr = getCost();
         int cost = costArr[0] + costArr[1] + costArr[2];
-        for (SubGoalController.InputCost inputCost:SGC.getGoalToCostMap().values()){
+        for (InputCost inputCost:getGoalToCostMap().values()){
             inputCost.setCost(cost);
         }
 
@@ -163,16 +162,16 @@ public class DeepQLearner implements RLController, Serializable {
             model.getAgents().add(backup);
         }
 
-        for (Map.Entry<String, SubGoalController.InputCost> entry: SGC.getGoalToCostMap().entrySet()){
+        for (Map.Entry<String, InputCost> entry: getGoalToCostMap().entrySet()){
             String key = entry.getKey();
-            SubGoalController.InputCost ic = entry.getValue();
+            InputCost ic = entry.getValue();
             if (ic.getStateXPrime()==null){ //If the goal has not been reached, set the result of that goal to the default feature vector
                 ic.setStateXPrime(getInputSet("WW", model.getAgents().get(0)));
                 if (debugging) {
                     System.out.println("updated next state of " + key + " to: " + Arrays.toString(ic.getStateXPrime()));
                 }
             }
-            double action = SGC.getDist(key);
+            double action = getDist(key);
             train(ic.getStateX(), ic.getStateXPrime(), Math.toIntExact(Math.round(action)), ic.getCost());
 
         }
@@ -188,7 +187,7 @@ public class DeepQLearner implements RLController, Serializable {
             for (String s:subGoalKeys){
                 double [] outputSet = getQ(getInputSet(s, a));
 
-                List<IndexActLink> outputList = determineOrder(outputSet);
+                List<IndexActLink> outputList = determineOrder(outputSet, explorationRate);
 
                 activationMap.put(s, outputList);
             }
@@ -200,31 +199,7 @@ public class DeepQLearner implements RLController, Serializable {
     }
 
 
-    /**
-     * This is where to e-greedy search is implemented. The passed list is ordered according to activation in (1-e) of the cases
-     * In the other cases, a randomized list with replacement is returned.
-     * @param activation The activation according to which the list needs to be order that needs to ordered
-     * @return Ordered list
-     */
-    private List<IndexActLink> determineOrder(double[] activation){
-        List<IndexActLink> outputList = new LinkedList<>();
 
-        //For regular greedy-search, the index which had the lowest activation will be placed at the first location of list
-        for (int i = 0; i<activation.length; i++){
-            outputList.add(new IndexActLink(i, (float) activation[i]));
-        }
-
-        //For the e-part of the search, there is an (1-e) chance that all indexes are randomized. no need to order it afterwards
-        if (rand.nextFloat()<explorationRate){
-            for (int i = 0; i<activation.length; i++){
-                outputList.get(i).index=rand.nextInt(activation.length);
-            }
-        } else {
-            outputList.sort(Comparator.comparing(IndexActLink::getActivation, Comparator.nullsLast(Comparator.naturalOrder())));
-        }
-
-        return outputList;
-    }
 
 
     private void printSubGoalActivation(){
@@ -234,7 +209,7 @@ public class DeepQLearner implements RLController, Serializable {
             for (String s:subGoalKeys){
                 System.out.println("\nActivation of sub-goal " + s + ": ");
                 for (IndexActLink ial : act.get(s)) {
-                    System.out.print( ial.activation + "(" + ial.index + ") " );
+                    System.out.print( ial.getActivation() + "(" + ial.getIndex()  + ") " );
                 }
 
             }
@@ -275,17 +250,17 @@ public class DeepQLearner implements RLController, Serializable {
 
     @Override
     public void pickAction(Agent a) {
-        String action = SGC.getNextAction(a);
+        String action = getNextAction(a);
         if (action.equals("Update sub-goal")){
-            String nextGoal = SGC.getNextGoal(a);
+            String nextGoal = getNextGoal(a);
             double[] activation = getQ(getInputSet(nextGoal,a));
-            SGC.updateDistMap(nextGoal, a, determineOrder(activation));
-            SGC.setNextGoal(a);
-            action = SGC.getNextAction(a);
+            updateDistMap(nextGoal, a, determineOrder(activation, explorationRate));
+            setNextGoal(a);
+            action = getNextAction(a);
         }
         a.takeAction(action);
         if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
-            SGC.removeGoalReached(a);
+            removeGoalReached(a);
             backup = a;
             if (debugging) {
                 System.out.println("Nr of Agents: " + model.getAgents().size());
@@ -314,33 +289,33 @@ public class DeepQLearner implements RLController, Serializable {
 
         mlp = new MLP(sizeInput, sizeHidden, sizeOutput, alpha, batchSize, new Random().nextLong());
     }
-
-    protected int boltzmannDistAct(List<IndexActLink> activationList){
-        double sum = 0;
-        for (IndexActLink ial:activationList){
-            sum += Math.exp(1/(explorationRate*ial.activation));
-        }
-        if (debugging){
-            for (IndexActLink ial:activationList){
-                System.out.println("Sum: " + sum + " -> index #" + ial.index + " has prob of: " + Math.exp(1/(explorationRate*ial.activation))/sum);
-            }
-        }
-        if (Double.isInfinite(sum)){
-            sum = Double.MAX_VALUE;
-            System.out.println("infinite value");
-        }
-        double randDouble = rand.nextDouble();
-        double randActionSum = Math.exp(1/(explorationRate*activationList.get(0).activation))/sum;
-        int i = 0;
-        while (randDouble>randActionSum){
-            i++;
-            randActionSum+= Math.exp(1/(explorationRate*activationList.get(0).activation))/sum;
-        }
-        if (debugging){
-            System.out.println("Returning " + activationList.get(i).index + " as randDouble = " + randDouble + " and randActionsum  = " + randActionSum);
-        }
-        return activationList.get(i).index;
-    }
+//
+//    protected int boltzmannDistAct(List<IndexActLink> activationList){
+//        double sum = 0;
+//        for (IndexActLink ial:activationList){
+//            sum += Math.exp(1/(explorationRate*ial.activation));
+//        }
+//        if (debugging){
+//            for (IndexActLink ial:activationList){
+//                System.out.println("Sum: " + sum + " -> index #" + ial.index + " has prob of: " + Math.exp(1/(explorationRate*ial.activation))/sum);
+//            }
+//        }
+//        if (Double.isInfinite(sum)){
+//            sum = Double.MAX_VALUE;
+//            System.out.println("infinite value");
+//        }
+//        double randDouble = rand.nextDouble();
+//        double randActionSum = Math.exp(1/(explorationRate*activationList.get(0).activation))/sum;
+//        int i = 0;
+//        while (randDouble>randActionSum){
+//            i++;
+//            randActionSum+= Math.exp(1/(explorationRate*activationList.get(0).activation))/sum;
+//        }
+//        if (debugging){
+//            System.out.println("Returning " + activationList.get(i).index + " as randDouble = " + randDouble + " and randActionsum  = " + randActionSum);
+//        }
+//        return activationList.get(i).index;
+//    }
 
     private double[] getQ(double[] in){
 
@@ -417,25 +392,6 @@ public class DeepQLearner implements RLController, Serializable {
         sleep(500);
         f.dispose();
     }
-
-    protected void sleep(int t){
-        try {
-            Thread.sleep(Math.abs(t));
-        } catch (java.lang.InterruptedException e) {
-            System.out.println(e.getMessage());
-        }
-    }
-
-    protected void screenshot(int goalsHit, int i){
-        Rectangle screenRect = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
-        try {
-            BufferedImage capture = new Robot().createScreenCapture(screenRect);
-            ImageIO.write(capture, "bmp", new File("./screenshot_run"+ run +"_i_"+iter+".bmp"));
-
-        }catch (Exception ex) {
-            System.out.println(ex.getMessage());
-        }
-    }
 //
 //    private void updateGoalsHit(Agent agent){
 //        if (agent.isCutting()){
@@ -494,27 +450,6 @@ public class DeepQLearner implements RLController, Serializable {
 //            System.out.println("Result for goal " + s + ": " + goalToCostMap.get(s).toString());
 //        }
 //    }
-
-    /**
-     * Class needed to order a list containing the index of the distance and the activation of that distance.
-     */
-    public class IndexActLink{
-        private int index;
-        private float activation;
-
-        private IndexActLink(int i, float a){
-            index=i;
-            activation=a;
-        }
-
-        private double getActivation() {
-            return activation;
-        }
-
-        public int getIndex() {
-            return index;
-        }
-    }
 //
 //    public class InputCost{
 //        double[] stateX;

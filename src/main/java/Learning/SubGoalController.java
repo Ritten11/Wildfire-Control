@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class SubGoalController implements Serializable {
+abstract class SubGoalController implements Serializable {
 
     private OrthogonalSubGoals subGoals;
     private Simulation model;
@@ -51,6 +51,7 @@ public class SubGoalController implements Serializable {
     private Features f;
     private int lowestCost;
     private int[][] costArr;
+    private Random rand;
 
     private HashSet<String> assignedGoals;
 
@@ -76,11 +77,12 @@ public class SubGoalController implements Serializable {
             new AbstractMap.SimpleEntry<>("NW", new InputCost()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    public SubGoalController(String PFMethod, String RLMethod, Simulation model, boolean use_gui, boolean debugging){
+    public SubGoalController(String PFMethod, String RLMethod, Simulation model, Random rand, boolean use_gui, boolean debugging){
         algorithm = PFMethod;
         this.use_gui = use_gui;
         this.debugging = debugging;
         this.RLMethod = RLMethod;
+        this.rand = rand;
         f = new Features();
         fit = new Fitness();
         this.model = model;
@@ -94,7 +96,7 @@ public class SubGoalController implements Serializable {
 
 
 
-    public void updateDistMap(String key, Agent agent, List<DeepQLearner.IndexActLink> list){
+    public void updateDistMap(String key, Agent agent, List<IndexActLink> list){
 
         if (!(subGoals.isGoalOfAgent(key)||assignedGoals.contains(key))) {
 //            if (debugging) {
@@ -118,7 +120,7 @@ public class SubGoalController implements Serializable {
         }
     }
 
-    public void updateDistMap(HashMap<Agent, HashMap<String, List<DeepQLearner.IndexActLink>>> subGoalOrder){
+    public void updateDistMap(HashMap<Agent, HashMap<String, List<IndexActLink>>> subGoalOrder){
         for (Agent a:model.getAgents()){
             for (String key : distMap.keySet()){
                 updateDistMap(key, a, subGoalOrder.get(a).get(key));
@@ -187,12 +189,37 @@ public class SubGoalController implements Serializable {
         }
     }
 
+    public void pickNextAction(Agent a){
+        String action = getNextAction(a);
+        if (action.equals("Update sub-goal")){
+            String nextGoal = getNextGoal(a);
+            double[] activation = getOutput(getInputSet(nextGoal,a));
+            updateDistMap(nextGoal, a, determineOrder(activation, explorationRate));
+            setNextGoal(a);
+            action = getNextAction(a);
+        }
+        a.takeAction(action);
+        if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
+            removeGoalReached(a);
+            backup = a;
+            if (debugging) {
+                System.out.println("Nr of Agents: " + model.getAgents().size());
+            }
+        }
+        if (use_gui) {
+            if (showActionFor > 0) {
+                sleep(showActionFor);
+                showActionFor -= 1;
+            }
+        }
+    }
+
     public void removeGoalReached(Agent a){
         subGoals.removeGoalReached(a);
     }
 
 
-    public void setDistance(List<DeepQLearner.IndexActLink> activationList, String key) {
+    public void setDistance(List<IndexActLink> activationList, String key) {
         int i = 0;
            do {
               subGoals.updateSubGoal(key, activationList.get(i).getIndex());
@@ -217,6 +244,32 @@ public class SubGoalController implements Serializable {
             System.out.println("Total fuel burnt: " + fit.totalFuelBurnt(model) + ", Total moveCost: " + fit.totalMoveCost(model) + ", Total cost: " + (cost[0]+cost[1]+cost[2]));
         }
         return cost;
+    }
+
+    /**
+     * This is where to e-greedy search is implemented. The passed list is ordered according to activation in (1-e) of the cases
+     * In the other cases, a randomized list with replacement is returned.
+     * @param activation The activation according to which the list needs to be order that needs to ordered
+     * @return Ordered list
+     */
+    public List<IndexActLink> determineOrder(double[] activation, float epsilon){
+        List<IndexActLink> outputList = new LinkedList<>();
+
+        //For regular greedy-search, the index which had the lowest activation will be placed at the first location of list
+        for (int i = 0; i<activation.length; i++){
+            outputList.add(new IndexActLink(i, (float) activation[i]));
+        }
+
+        //For the e-part of the search, there is an (1-e) chance that all indexes are randomized. no need to order it afterwards
+        if (rand.nextFloat()<epsilon){
+            for (int i = 0; i<activation.length; i++){
+                outputList.get(i).index=rand.nextInt(activation.length);
+            }
+        } else {
+            outputList.sort(Comparator.comparing(IndexActLink::getActivation, Comparator.nullsLast(Comparator.naturalOrder())));
+        }
+
+        return outputList;
     }
 
 
@@ -275,7 +328,7 @@ public class SubGoalController implements Serializable {
         }
     }
 
-    public void screenshot(int run, int i){
+    protected void screenshot(int run, int i){
         Rectangle screenRect = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
         try {
             BufferedImage capture = new Robot().createScreenCapture(screenRect);
@@ -346,6 +399,8 @@ public class SubGoalController implements Serializable {
         }
     }
 
+    abstract double[] getOutput(double[] input);
+
     public double getDist(String key){
         return distMap.get(key);
     }
@@ -413,6 +468,27 @@ public class SubGoalController implements Serializable {
 
         public int getCost() {
             return cost;
+        }
+    }
+
+    /**
+     * Class needed to order a list containing the index of the distance and the activation of that distance.
+     */
+    public class IndexActLink{
+        private int index;
+        private float activation;
+
+        private IndexActLink(int i, float a){
+            index=i;
+            activation=a;
+        }
+
+        public double getActivation() {
+            return activation;
+        }
+
+        public int getIndex() {
+            return index;
         }
     }
 

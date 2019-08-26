@@ -1,5 +1,6 @@
 package Learning.CoSyNe;
 
+import Learning.Features;
 import Learning.RLController;
 import Model.Agent;
 import Model.Simulation;
@@ -22,6 +23,8 @@ public abstract class CoSyNe implements RLController {
     //layer, neuron, weight
     protected List<List<List<WeightBag>>> weightBags;
     protected MultiLayerPerceptron mlp;
+    public Features features;
+    protected int outputNeurons = 1;
     protected Simulation model;
     protected Double best_performance = null;
     protected Double ultimate_performance = null;
@@ -36,6 +39,13 @@ public abstract class CoSyNe implements RLController {
     public CoSyNe(){
         MLP_shape = new ArrayList<>();
         model = new Simulation(this);
+
+        features = new Features();
+        double[] fire=features.locationCenterFireAndMinMax(model);
+        int minY=(int)Math.min(fire[1], (model.getAllCells().get(0).size()-fire[1]));
+        int minX=(int)Math.min(fire[0], (model.getAllCells().size()-fire[0]));
+        outputNeurons = Math.min(minX,minY);
+
         MLP_shape.add(getInput().length);
         for(int i = 0; i < defHiddenLayers().length; i++){
             MLP_shape.add(defHiddenLayers()[i]);

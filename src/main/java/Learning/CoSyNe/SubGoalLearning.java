@@ -1,17 +1,22 @@
 package Learning.CoSyNe;
 
 import Learning.CoSyNe.*;
+import Learning.DeepQ.DeepQLearner;
 import Learning.Features;
 import Learning.Fitness;
+import Learning.SubGoalController;
 import Model.Agent;
 import Model.Simulation;
 import Learning.OffsetFeatures;
+import Navigation.SubGoal;
 import View.MainFrame;
 import org.neuroph.util.TransferFunctionType;
 
 import javax.swing.*;
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 
 import static java.lang.Double.NaN;
 
@@ -21,7 +26,10 @@ import static java.lang.Double.NaN;
  */
 public class SubGoalLearning extends CoSyNe  {
 
-    OffsetFeatures features;
+    private SubGoalController sgc;
+    private HashMap<Agent, HashMap<String, List<SubGoalController.IndexActLink>>> subGoalActivation;
+    private final List<String> subGoalKeys = Arrays.asList(new String[]{"WW", "SW", "SS", "SE", "EE", "NE", "NN", "NW"});
+
 
     public SubGoalLearning(){
         super();
@@ -35,17 +43,20 @@ public class SubGoalLearning extends CoSyNe  {
      * @param max
      * @return
      */
-    protected double determineOffset(int iterator, int max){
-        double deg = (double)iterator / (double)max;    //Not actually degree, but normalized to 0-1
-        if(deg == NaN){
-            System.out.println("NaN degrees!");
-        }
-        features = new OffsetFeatures(model);
-        features.setDegree(deg);
-        mlp.setInput(getInput());
-        mlp.calculate();
-        return (mlp.getOutput()[0]*model.getParameter_manager().getWidth() +2)/2;
 
+    private void initSubGoalOrder(){ //TODO: If rand float< exploreRate -> make random dist array, otherwise use order of activations
+        for (Agent a:model.getAgents()){
+            HashMap<String, List<SubGoalController.IndexActLink>> activationMap = new HashMap<>();
+            for (String s:subGoalKeys){
+                mlp.setInput(getInput(s, a)); //TODO: instead of using an MLP, use the path to a sub-goal.
+                mlp.calculate();
+                double[] outputSet = mlp.getOutput();
+                List<SubGoalController.IndexActLink> outputList = sgc.determineOrder(outputSet);
+
+                activationMap.put(s, outputList);
+            }
+            subGoalActivation.put(a, activationMap);
+        }
     }
 
     /**
@@ -54,10 +65,10 @@ public class SubGoalLearning extends CoSyNe  {
      */
     @Override
     protected void testMLP(){
-        double[] dist = model.getSubGoals();
-        for(int i = 0; i < dist.length; i++){
-            dist[i] = determineOffset(i, dist.length);
-        }
+
+
+        initSubGoalOrder();
+
         model.setSubGoals(dist);
         //System.out.println(Arrays.toString( model.getSubGoals()));
 
@@ -127,7 +138,7 @@ public class SubGoalLearning extends CoSyNe  {
      */
     @Override
     protected int defN_outputs() {
-        return 1;
+        return outputNeurons;
     }
 
     @Override
@@ -150,12 +161,11 @@ public class SubGoalLearning extends CoSyNe  {
         return 10;
     }
 
-    @Override
-    protected double[] getInput() {
+    protected double[] getInput(String s, Agent a) {
         if(features == null){
-            features = new OffsetFeatures(model);
+            features = new Features();
         }
-        return features.getResult();
+        return features.getInputSet(model, a, s);
     }
 
     @Override

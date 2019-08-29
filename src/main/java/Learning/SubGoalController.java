@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public abstract class SubGoalController implements Serializable {
+public abstract class SubGoalController implements Serializable,RLController {
 
     private final int max_runs = 20;
     private int run=0;
@@ -112,6 +112,15 @@ public abstract class SubGoalController implements Serializable {
             for (iter = 0; iter < iterations; iter++) {
                 randSeed++;
                 showActionFor = timeActionShown;
+
+                model = new Simulation(this, use_gui, randSeed);
+                //SGC = new SubGoalController(algorithm, "CQL", model, rand,  use_gui, debugging);
+                subGoalActivation = new HashMap<>();
+                backup = model.getAgents().get(0);
+
+                initSubGoalOrder();
+                updateDistMap(subGoalActivation);
+
                 train();
                 costArr[iter] = getCost();
                 if (explorationRate > 0) {
@@ -222,12 +231,12 @@ public abstract class SubGoalController implements Serializable {
         }
     }
 
-    public void pickNextAction(Agent a){
+    public void pickAction(Agent a){
         String action = getNextAction(a);
         if (action.equals("Update sub-goal")){
             String nextGoal = getNextGoal(a);
             double[] activation = getOutput(getInputSet(nextGoal,a));
-            updateDistMap(nextGoal, a, determineOrder(activation, explorationRate));
+            updateDistMap(nextGoal, a, determineOrder(activation));
             setNextGoal(a);
             action = getNextAction(a);
         }
@@ -271,7 +280,7 @@ public abstract class SubGoalController implements Serializable {
         }
     }
 
-    private int[] getCost(){
+    protected int[] getCost(){
         int[] cost = fit.totalCosts(model);
         if (debugging){
             System.out.println("Total fuel burnt: " + fit.totalFuelBurnt(model) + ", Total moveCost: " + fit.totalMoveCost(model) + ", Total cost: " + (cost[0]+cost[1]+cost[2]));
@@ -285,7 +294,7 @@ public abstract class SubGoalController implements Serializable {
      * @param activation The activation according to which the list needs to be order that needs to ordered
      * @return Ordered list
      */
-    public List<IndexActLink> determineOrder(double[] activation, float epsilon){
+    public List<IndexActLink> determineOrder(double[] activation){
         List<IndexActLink> outputList = new LinkedList<>();
 
         //For regular greedy-search, the index which had the lowest activation will be placed at the first location of list
@@ -294,7 +303,7 @@ public abstract class SubGoalController implements Serializable {
         }
 
         //For the e-part of the search, there is an (1-e) chance that all indexes are randomized. no need to order it afterwards
-        if (rand.nextFloat()<epsilon){
+        if (rand.nextFloat()<explorationRate){
             for (int i = 0; i<activation.length; i++){
                 outputList.get(i).index=rand.nextInt(activation.length);
             }
@@ -304,6 +313,35 @@ public abstract class SubGoalController implements Serializable {
 
         return outputList;
     }
+
+    protected void initSubGoalOrder(){ //TODO: If rand float< exploreRate -> make random dist array, otherwise use order of activations
+        for (Agent a:model.getAgents()){
+            HashMap<String, List<IndexActLink>> activationMap = new HashMap<>();
+            for (String s:subGoalKeys){
+                double [] outputSet = getOutput(getInputSet(s, a));
+
+                List<IndexActLink> outputList = determineOrder(outputSet);
+
+                activationMap.put(s, outputList);
+            }
+            subGoalActivation.put(a, activationMap);
+        }
+        if (debugging) {
+            printSubGoalActivation();
+        }
+    }
+
+
+    private void updateGoalsHit(Agent agent){
+        if (agent.isCutting()){
+            model.goalsHit++;
+            goalToCostMap.get(subGoals.getAgentGoals().get(agent)).setStateXPrime(getInputSet(subGoals.getNextGoal(agent),agent));
+        }
+        if (debugging){
+            System.out.println("# of goals hit: " + model.goalsHit);
+        }
+    }
+
 
 
     /**
@@ -318,7 +356,7 @@ public abstract class SubGoalController implements Serializable {
 //        return set;
 //    }
 
-    private double[] getInputSet(String subGoal, Agent a){
+    protected double[] getInputSet(String subGoal, Agent a){
         return f.getInputSet(model, a, subGoal);
     }
 
@@ -401,17 +439,6 @@ public abstract class SubGoalController implements Serializable {
             System.out.println("Unable to make directory");
         }
     }
-
-    private void updateGoalsHit(Agent agent){
-        if (agent.isCutting()){
-            model.goalsHit++;
-            goalToCostMap.get(subGoals.getAgentGoals().get(agent)).setStateXPrime(getInputSet(subGoals.getNextGoal(agent),agent));
-        }
-        if (debugging){
-            System.out.println("# of goals hit: " + model.goalsHit);
-        }
-    }
-
 //    private void resetSimulation(String error){
 //        System.out.println("UNEXPECTED ERROR: (" + error + ") OCCURRED, DISCARDING CURRENT MODEL AND STARTING NEW");
 //        nrErrors++;
@@ -459,6 +486,21 @@ public abstract class SubGoalController implements Serializable {
         System.out.println("Final number of sub goals assigned: " + goalToCostMap.keySet().size());
         for (Map.Entry<String, InputCost> entry : goalToCostMap.entrySet()) {
             System.out.println(entry.getKey()+" : "+Arrays.toString(entry.getValue().stateX)+" -> "+Arrays.toString(entry.getValue().stateXPrime));
+        }
+    }
+
+    protected void printSubGoalActivation(){
+        for (Agent a:model.getAgents()){
+            HashMap<String, List<IndexActLink>> act = subGoalActivation.get(a);
+            System.out.println("Sub-goals of agent #" + a.getId());
+            for (String s:subGoalKeys){
+                System.out.println("\nActivation of sub-goal " + s + ": ");
+                for (IndexActLink ial : act.get(s)) {
+                    System.out.print( ial.getActivation() + "(" + ial.getIndex()  + ") " );
+                }
+
+            }
+            System.out.println(" ");
         }
     }
 

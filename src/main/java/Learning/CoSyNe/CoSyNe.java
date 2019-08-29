@@ -2,6 +2,7 @@ package Learning.CoSyNe;
 
 import Learning.Features;
 import Learning.RLController;
+import Learning.SubGoalController;
 import Model.Agent;
 import Model.Simulation;
 import View.MainFrame;
@@ -18,7 +19,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
-public abstract class CoSyNe implements RLController {
+public abstract class CoSyNe extends SubGoalController {
     private List<Integer> MLP_shape;
     //layer, neuron, weight
     protected List<List<List<WeightBag>>> weightBags;
@@ -186,9 +187,7 @@ public abstract class CoSyNe implements RLController {
      */
     @Override
     public void pickAction(Agent a) {
-        mlp.setInput(getInput()); //TODO: instead of using an MLP, use the path to a sub-goal.
-        mlp.calculate();
-        double[] outputs = mlp.getOutput();
+        double[] outputs = getOutput(getInput());
 
 
         //We apply softMax
@@ -217,6 +216,12 @@ public abstract class CoSyNe implements RLController {
         mean_confidence = mean_confidence + Math.exp(outputs[chosen_action]/defCertainty())/sum;
         conf_counter++;
         performAction(chosen_action, a);
+    }
+
+    protected double[] getOutput(double[] input){
+        mlp.setInput(input);
+        mlp.calculate();
+        return mlp.getOutput();
     }
 
     /**

@@ -16,7 +16,7 @@ import java.util.List;
  * Function of this class: Produce an array or HashSet containing the distances between subgoals and center of fire
  * Not the function of this class: subgoal management.
  */
-public class DeepQLearner extends SubGoalController implements RLController, Serializable {
+public class DeepQLearner extends SubGoalController implements Serializable {
     protected float gamma = 0.1f;
     protected float alpha = 0.001f;
 
@@ -61,10 +61,6 @@ public class DeepQLearner extends SubGoalController implements RLController, Ser
     }
 
     protected void train(){
-        model = new Simulation(this, use_gui, randSeed);
-        //SGC = new SubGoalController(algorithm, "CQL", model, rand,  use_gui, debugging);
-        subGoalActivation = new HashMap<>();
-        backup = model.getAgents().get(0);
 //        assignedGoals = new HashSet<>();
 
 //        double fireLocation[] = f.locationCenterFireAndMinMax(model);
@@ -73,13 +69,7 @@ public class DeepQLearner extends SubGoalController implements RLController, Ser
         JFrame frame;
         if(use_gui){
             frame = createMainFrame();
-
         }
-
-
-
-        initSubGoalOrder();
-        updateDistMap(subGoalActivation);
 
         if ((debugging)&&use_gui){
             //model.applyUpdates();
@@ -126,41 +116,6 @@ public class DeepQLearner extends SubGoalController implements RLController, Ser
         }
     }
 
-    private void initSubGoalOrder(){ //TODO: If rand float< exploreRate -> make random dist array, otherwise use order of activations
-        for (Agent a:model.getAgents()){
-            HashMap<String, List<IndexActLink>> activationMap = new HashMap<>();
-            for (String s:subGoalKeys){
-                double [] outputSet = getQ(getInputSet(s, a));
-
-                List<IndexActLink> outputList = determineOrder(outputSet, explorationRate);
-
-                activationMap.put(s, outputList);
-            }
-            subGoalActivation.put(a, activationMap);
-        }
-        if (debugging) {
-            printSubGoalActivation();
-        }
-    }
-
-
-
-
-
-    private void printSubGoalActivation(){
-        for (Agent a:model.getAgents()){
-            HashMap<String, List<IndexActLink>> act = subGoalActivation.get(a);
-            System.out.println("Sub-goals of agent #" + a.getId());
-            for (String s:subGoalKeys){
-                System.out.println("\nActivation of sub-goal " + s + ": ");
-                for (IndexActLink ial : act.get(s)) {
-                    System.out.print( ial.getActivation() + "(" + ial.getIndex()  + ") " );
-                }
-
-            }
-            System.out.println(" ");
-        }
-    }
 
     private void train(double[] oldState, double[] newState, int action, int reward){
 
@@ -193,31 +148,31 @@ public class DeepQLearner extends SubGoalController implements RLController, Ser
         System.out.println(Arrays.toString(oldState)+" -> "+Arrays.toString(oldValue));
     }
 
-    @Override
-    public void pickAction(Agent a) {
-        String action = getNextAction(a);
-        if (action.equals("Update sub-goal")){
-            String nextGoal = getNextGoal(a);
-            double[] activation = getQ(getInputSet(nextGoal,a));
-            updateDistMap(nextGoal, a, determineOrder(activation, explorationRate));
-            setNextGoal(a);
-            action = getNextAction(a);
-        }
-        a.takeAction(action);
-        if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
-            removeGoalReached(a);
-            backup = a;
-            if (debugging) {
-                System.out.println("Nr of Agents: " + model.getAgents().size());
-            }
-        }
-        if (use_gui) {
-            if (showActionFor > 0) {
-                sleep(showActionFor);
-                showActionFor -= 1;
-            }
-        }
-    }
+//    @Override
+//    public void pickAction(Agent a) {
+//        String action = getNextAction(a);
+//        if (action.equals("Update sub-goal")){
+//            String nextGoal = getNextGoal(a);
+//            double[] activation = getQ(getInputSet(nextGoal,a));
+//            updateDistMap(nextGoal, a, determineOrder(activation, explorationRate));
+//            setNextGoal(a);
+//            action = getNextAction(a);
+//        }
+//        a.takeAction(action);
+//        if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
+//            removeGoalReached(a);
+//            backup = a;
+//            if (debugging) {
+//                System.out.println("Nr of Agents: " + model.getAgents().size());
+//            }
+//        }
+//        if (use_gui) {
+//            if (showActionFor > 0) {
+//                sleep(showActionFor);
+//                showActionFor -= 1;
+//            }
+//        }
+//    }
 
     protected void initRL(){
         model = new Simulation(this);
@@ -291,34 +246,6 @@ public class DeepQLearner extends SubGoalController implements RLController, Ser
         }
     }
 
-
-
-    private int[] getCost(){
-        int[] cost = fit.totalCosts(model);
-        if (debugging){
-            System.out.println("Total fuel burnt: " + fit.totalFuelBurnt(model) + ", Total moveCost: " + fit.totalMoveCost(model) + ", Total cost: " + (cost[0]+cost[1]+cost[2]));
-        }
-        return cost;
-    }
-
-
-    /**
-     * Transform state to input vector.
-     * @param subGoal: expressed as an integer to allow for use of for loops.
-     * @return
-     */
-//    private double[] getInputSet(int subGoal){
-//        float windX = model.getParameters().get("Wind x");
-//        float windY = model.getParameters().get("Wind y");
-//        double[] set = f.appendArrays(f.cornerVectors(model, false), f.windRelativeToSubgoal(windX, windY, indexMap.get(subGoal)));
-//        return set;
-//    }
-
-    private double[] getInputSet(String subGoal, Agent a){
-        return f.getInputSet(model, a, subGoal);
-    }
-
-
     public static double minValue(double[] numbers){
         double min = Double.MAX_VALUE;
         for(int i = 1; i < numbers.length;i++)
@@ -360,9 +287,6 @@ public class DeepQLearner extends SubGoalController implements RLController, Ser
 //        train();
 //    }
 
-    private String dirGenerator(){
-        return System.getProperty("user.dir") + "/results/Q-Learning/" + algorithm + "/" + model.getNr_agents() + "_agent_environment";
-    }
 //
 //    private void printGoalToCoastMap(){
 //        for (String s:goalToCostMap.keySet()){

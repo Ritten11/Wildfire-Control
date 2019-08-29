@@ -26,15 +26,14 @@ import static java.lang.Double.NaN;
  */
 public class SubGoalLearning extends CoSyNe  {
 
-    private SubGoalController sgc;
     private HashMap<Agent, HashMap<String, List<SubGoalController.IndexActLink>>> subGoalActivation;
     private final List<String> subGoalKeys = Arrays.asList(new String[]{"WW", "SW", "SS", "SE", "EE", "NE", "NN", "NW"});
 
 
     public SubGoalLearning(){
         super();
-        model = new Simulation(false);  //Not Simulation(this), since we don't pick the individual moves
-        performLearning();
+        //model = new Simulation(false);  //Not Simulation(this), since we don't pick the individual moves
+        //performLearning();
     }
 
     /**
@@ -44,14 +43,14 @@ public class SubGoalLearning extends CoSyNe  {
      * @return
      */
 
-    private void initSubGoalOrder(){ //TODO: If rand float< exploreRate -> make random dist array, otherwise use order of activations
+    protected void initSubGoalOrder(){ //TODO: If rand float< exploreRate -> make random dist array, otherwise use order of activations
         for (Agent a:model.getAgents()){
             HashMap<String, List<SubGoalController.IndexActLink>> activationMap = new HashMap<>();
             for (String s:subGoalKeys){
                 mlp.setInput(getInput(s, a)); //TODO: instead of using an MLP, use the path to a sub-goal.
                 mlp.calculate();
                 double[] outputSet = mlp.getOutput();
-                List<SubGoalController.IndexActLink> outputList = sgc.determineOrder(outputSet);
+                List<SubGoalController.IndexActLink> outputList = determineOrder(outputSet);
 
                 activationMap.put(s, outputList);
             }

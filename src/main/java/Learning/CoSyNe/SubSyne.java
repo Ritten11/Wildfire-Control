@@ -15,14 +15,14 @@ import static java.lang.Thread.sleep;
 /**
  * SubSyne class navigates between subgoals. This class is used by the ActionLearner, so changes made here may result in changes in the HRL approach.
  */
-public class SubSyne extends CoSyNe{
+abstract public class SubSyne extends CoSyNe{
 
 
     protected boolean previousaction =true; //Switch for ensuring every other action is a dig
 
     public SubSyne(){
         super();
-        performLearning();
+        //performLearning();
     }
 
     /**

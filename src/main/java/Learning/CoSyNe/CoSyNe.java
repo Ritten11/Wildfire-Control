@@ -24,7 +24,6 @@ public abstract class CoSyNe extends SubGoalController {
     //layer, neuron, weight
     protected List<List<List<WeightBag>>> weightBags;
     protected MultiLayerPerceptron mlp;
-    public Features features;
     protected int outputNeurons = 1;
     protected Simulation model;
     protected Double best_performance = null;
@@ -34,34 +33,34 @@ public abstract class CoSyNe extends SubGoalController {
     protected Integer conf_counter = null;
     protected int generation;
 
-    protected boolean use_gui = true;
-    private long randSeed = -1;
-
     public CoSyNe(){
+        super();
+    }
+
+    protected void initRL(){
         MLP_shape = new ArrayList<>();
         model = new Simulation(this);
 
-        features = new Features();
-        double[] fire=features.locationCenterFireAndMinMax(model);
+        f = new Features();
+        double[] fire=f.locationCenterFireAndMinMax(model);
         int minY=(int)Math.min(fire[1], (model.getAllCells().get(0).size()-fire[1]));
         int minX=(int)Math.min(fire[0], (model.getAllCells().size()-fire[0]));
         outputNeurons = Math.min(minX,minY);
 
-        MLP_shape.add(getInput().length);
+        model = new Simulation(this, use_gui, randSeed);
+        MLP_shape.add(getInputSet("WW", model.getAgents().get(0)).length);
         for(int i = 0; i < defHiddenLayers().length; i++){
             MLP_shape.add(defHiddenLayers()[i]);
         }
         MLP_shape.add(defN_outputs());
-        model = new Simulation(this, use_gui, randSeed);
 
         initializeBags();
-
     }
 
     /**
      * The overall generation loop including creating MLPs, testing them, and breeding them
      */
-    protected void performLearning(){
+    protected void train(){
         for(generation = 0; generation < defN_generations(); generation++){
             mean_perfomance = 0;
             for(int test = 0; test < defGenerationSize(); test++){
@@ -181,47 +180,67 @@ public abstract class CoSyNe extends SubGoalController {
         }
     }
 
+//    /**
+//     * Extracts an action integer from the MLPs output. Using SoftMax
+//     * @param a
+//     */
+//    @Override
+//    public void pickAction(Agent a) {
+//        super.pickAction(a);
+//        double[] outputs = getOutput(getInput());
+//
+//
+//        //We apply softMax
+//        double sum = 0;
+//
+//        for(int i = 0; i< outputs.length; i++){
+//            sum = sum + Math.exp(outputs[i]/ defCertainty());
+//        }
+//
+//        double rand = new Random().nextDouble();
+//
+//        double step = 0;
+//        int chosen_action = -1;
+//        while(chosen_action < outputs.length && step < rand){
+//            chosen_action++;
+//            step += Math.exp(outputs[chosen_action]/defCertainty())/sum;
+//        }
+//
+//        if(mean_confidence == null){
+//            mean_confidence = new Double(0);
+//        }
+//        if(conf_counter == null){
+//            conf_counter = new Integer(0);
+//        }
+//        //Log the confidence so that they become printable
+//        mean_confidence = mean_confidence + Math.exp(outputs[chosen_action]/defCertainty())/sum;
+//        conf_counter++;
+//    }
+
     /**
-     * Extracts an action integer from the MLPs output. Using SoftMax
-     * @param a
+     * Get the output from the MLP and uses a ReLu function to get rid of negative numbers
+     * @param input
+     * @return
      */
-    @Override
-    public void pickAction(Agent a) {
-        double[] outputs = getOutput(getInput());
-
-
-        //We apply softMax
-        double sum = 0;
-
-        for(int i = 0; i< outputs.length; i++){
-            sum = sum + Math.exp(outputs[i]/ defCertainty());
-        }
-
-        double rand = new Random().nextDouble();
-
-        double step = 0;
-        int chosen_action = -1;
-        while(chosen_action < outputs.length && step < rand){
-            chosen_action++;
-            step += Math.exp(outputs[chosen_action]/defCertainty())/sum;
-        }
-
-        if(mean_confidence == null){
-            mean_confidence = new Double(0);
-        }
-        if(conf_counter == null){
-            conf_counter = new Integer(0);
-        }
-        //Log the confidence so that they become printable
-        mean_confidence = mean_confidence + Math.exp(outputs[chosen_action]/defCertainty())/sum;
-        conf_counter++;
-        performAction(chosen_action, a);
-    }
-
     protected double[] getOutput(double[] input){
         mlp.setInput(input);
         mlp.calculate();
-        return mlp.getOutput();
+        return reLu(mlp.getOutput());
+    }
+
+    /**
+     * Makes every negative enrty equal to 0, does nothing in all other cases
+     * @param a
+     * @return
+     */
+    public static double[] reLu(double[] a){
+        int m = a.length;
+        double[] z = new double[m];
+
+        for (int i = 0; i < m; i++) {
+            z[i] = (a[i]>1?a[i]:0);
+        }
+        return z;
     }
 
     /**
@@ -276,12 +295,12 @@ public abstract class CoSyNe extends SubGoalController {
      * @return
      */
     protected abstract int defN_children();
-
-    /**
-     * Get the inputs to the MLP from a model
-     * @return A list of doubles extracted as meaningful features from the model
-     */
-    protected abstract double[] getInput();
+//
+//    /**
+//     * Get the inputs to the MLP from a model
+//     * @return A list of doubles extracted as meaningful features from the model
+//     */
+//    protected abstract double[] getInput();
 
     /**
      * Get the performance the MLP delivered from the model

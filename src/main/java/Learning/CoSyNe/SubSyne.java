@@ -22,7 +22,7 @@ abstract public class SubSyne extends CoSyNe{
 
     public SubSyne(){
         super();
-        //performLearning();
+        //train();
     }
 
     /**
@@ -133,22 +133,22 @@ abstract public class SubSyne extends CoSyNe{
         return 5;
     }
 
-    @Override
-    /**
-     * Input is the scaled x&y difference to the next subgoal
-     */
-    protected double[] getInput() {
-        return getInput("WW");
-    }
-
-    protected double[] getInput(String goal) {
-        if(model == null){
-            model = new Simulation(this);
-            model.applySubgoals();
-        }
-        Agent agent = model.getAgents().get(0);
-        return new Features().getInputSet(model, agent, goal);
-    }
+//    @Override
+//    /**
+//     * Input is the scaled x&y difference to the next subgoal
+//     */
+//    protected double[] getInput() {
+//        return getInput("WW");
+//    }
+//
+//    protected double[] getInput(String goal) {
+//        if(model == null){
+//            model = new Simulation(this);
+//            model.applySubgoals();
+//        }
+//        Agent agent = model.getAgents().get(0);
+//        return new Features().getInputSet(model, agent, goal);
+//    }
 
     @Override
     /**
@@ -159,32 +159,6 @@ abstract public class SubSyne extends CoSyNe{
         Fitness fit = new Fitness();
         int[] costs = fit.totalCosts(model);
         return  (costs[0]+costs[1]+costs[2]);
-    }
-
-    protected JFrame createMainFrame(){
-        JFrame f = new MainFrame(model);
-        sleep(1000);
-        return f;
-    }
-
-    protected void disposeMainFrame(JFrame f){
-        sleep(500);
-        f.dispose();
-    }
-
-    protected void sleep(int t){
-        try {
-            Thread.sleep(Math.abs(t));
-        } catch (java.lang.InterruptedException e) {
-            System.out.println(e.getMessage());
-        }
-    }
-
-    protected void takeScreenShot(){
-        JFrame f = createMainFrame();
-        sleep(500);
-        screenshot(0, (int) getFitness());
-        f.dispose();
     }
 
     @Override

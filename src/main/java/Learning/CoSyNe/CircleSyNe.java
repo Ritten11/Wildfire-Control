@@ -17,7 +17,7 @@ public class CircleSyNe extends CoSyNe implements Serializable {
 
     public CircleSyNe(){
         super();
-        performLearning();
+        train();
     }
 
     @Override
@@ -88,14 +88,14 @@ public class CircleSyNe extends CoSyNe implements Serializable {
     protected int defN_children() {
         return 30;
     }
-
-    @Override
-    protected double[] getInput() {
-        if(features == null){
-            features = new Features();
-        }
-        return features.appendArrays(features.previousAction(), features.cornerVectors(model, false));
-    }
+//
+//    @Override
+//    protected double[] getInput() {
+//        if(features == null){
+//            features = new Features();
+//        }
+//        return features.appendArrays(features.previousAction(), features.cornerVectors(model, false));
+//    }
 
     @Override
     protected double getFitness() {

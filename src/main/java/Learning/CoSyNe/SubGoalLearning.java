@@ -26,28 +26,20 @@ import static java.lang.Double.NaN;
  */
 public class SubGoalLearning extends CoSyNe  {
 
-    private HashMap<Agent, HashMap<String, List<SubGoalController.IndexActLink>>> subGoalActivation;
     private final List<String> subGoalKeys = Arrays.asList(new String[]{"WW", "SW", "SS", "SE", "EE", "NE", "NN", "NW"});
 
 
     public SubGoalLearning(){
         super();
         //model = new Simulation(false);  //Not Simulation(this), since we don't pick the individual moves
-        //performLearning();
+        //train();
     }
-
-    /**
-     * This does the picking of an offset. The MLP has 1 output neuron, which we scale to be between 1-width/2
-     * @param iterator
-     * @param max
-     * @return
-     */
 
     protected void initSubGoalOrder(){ //TODO: If rand float< exploreRate -> make random dist array, otherwise use order of activations
         for (Agent a:model.getAgents()){
             HashMap<String, List<SubGoalController.IndexActLink>> activationMap = new HashMap<>();
             for (String s:subGoalKeys){
-                mlp.setInput(getInput(s, a)); //TODO: instead of using an MLP, use the path to a sub-goal.
+                mlp.setInput(getInput(s, a));
                 mlp.calculate();
                 double[] outputSet = mlp.getOutput();
                 List<SubGoalController.IndexActLink> outputList = determineOrder(outputSet);
@@ -56,6 +48,7 @@ public class SubGoalLearning extends CoSyNe  {
             }
             subGoalActivation.put(a, activationMap);
         }
+        updateDistMap(subGoalActivation);
     }
 
     /**
@@ -68,7 +61,7 @@ public class SubGoalLearning extends CoSyNe  {
 
         initSubGoalOrder();
 
-        model.setSubGoals(dist);
+        //model.setSubGoals(dist);
         //System.out.println(Arrays.toString( model.getSubGoals()));
 
 
@@ -89,11 +82,8 @@ public class SubGoalLearning extends CoSyNe  {
             model = new Simulation(false);
             model.getParameter_manager().changeParameter("Model", "Step Time", 1000f);
             JFrame f = new MainFrame(model);
-            dist = model.getSubGoals();
-            for(int i = 0; i < dist.length; i++){
-                dist[i] = determineOffset(i, dist.length);
-            }
-            model.setSubGoals(dist);
+            subGoalActivation = null;
+            initSubGoalOrder();
             model.start();
             try {
                 Thread.sleep(Math.abs(1000));
@@ -161,10 +151,10 @@ public class SubGoalLearning extends CoSyNe  {
     }
 
     protected double[] getInput(String s, Agent a) {
-        if(features == null){
-            features = new Features();
+        if(f == null){
+            f = new Features();
         }
-        return features.getInputSet(model, a, s);
+        return f.getInputSet(model, a, s);
     }
 
     @Override

@@ -46,9 +46,10 @@ public class Main {
 			hc.simulationPanel = f.simulationPanel;
 		} else if (args.length > 0 && args[0].equals("sub")){
 			new SubGoalLearning();
-		} else if (args.length > 0 && args[0].equals("subSyne")){
-			new SubSyne();
 		}
+//		else if (args.length > 0 && args[0].equals("subSyne")){
+//			new SubSyne();
+//		}
 		else if (args.length > 0 && args[0].equals("HRL")){
 			new ActionLearner();
 		} else {

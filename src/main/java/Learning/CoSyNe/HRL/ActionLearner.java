@@ -28,9 +28,7 @@ public class ActionLearner extends SubSyne {
         if(goalLearner == null){
             goalLearner = new GoalLearner();
         }
-        double[] dist = goalLearner.generateGoals(model);
-        model.setSubGoals(dist);
-        model.applySubgoals();
+        initSubGoalOrder();
 
 
         model.start();

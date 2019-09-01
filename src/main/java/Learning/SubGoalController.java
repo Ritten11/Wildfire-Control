@@ -1,7 +1,5 @@
 package Learning;
 
-import Learning.DeepQ.DeepQLearner;
-import Learning.DeepQ.MLP;
 import Model.Agent;
 import Model.Simulation;
 import Navigation.OrthogonalSubGoals;
@@ -22,7 +20,7 @@ import java.util.stream.Stream;
 
 public abstract class SubGoalController implements Serializable,RLController {
 
-    private final int max_runs = 20;
+    private final int max_runs = 2;
     private int run=0;
     protected static int iter=0;
     private static int nrErrors = 0;
@@ -30,8 +28,8 @@ public abstract class SubGoalController implements Serializable,RLController {
     protected float explorationRate;
     protected float exploreDiscount = explorationRate/iterations;
 
-    private OrthogonalSubGoals subGoals;
-    private Simulation model;
+    protected OrthogonalSubGoals subGoals;
+    protected Simulation model;
 
     //Variables needed for debugging:
     protected final static boolean use_gui = false;
@@ -50,7 +48,7 @@ public abstract class SubGoalController implements Serializable,RLController {
      6 -> d=6
      */
 
-    private Agent backup; //If the final agent has died, the MLP still needs an agent to determine the inputVector of the MLP
+    protected Agent backup; //If the final agent has died, the MLP still needs an agent to determine the inputVector of the MLP
 
     //Fields for functionality of navigation and fitness
     protected String algorithm = "Bresenham";
@@ -90,13 +88,6 @@ public abstract class SubGoalController implements Serializable,RLController {
         f = new Features();
         fit = new Fitness();
         rand = new Random();
-        this.model = new Simulation(false);
-
-        // init subGoals
-        double fireLocation[] = f.locationCenterFireAndMinMax(model);
-        subGoals = new OrthogonalSubGoals((int)fireLocation[0],(int)fireLocation[1], distMap, algorithm, model.getAllCells());
-
-        assignedGoals = new HashSet<>();
 
         while (run<max_runs) {
             run++;
@@ -107,6 +98,10 @@ public abstract class SubGoalController implements Serializable,RLController {
             explorationRate = 0.3f;
 
 
+            model = new Simulation(false);
+            // init subGoals
+            double fireLocation[] = f.locationCenterFireAndMinMax(model);
+
             initRL();
 
             for (iter = 0; iter < iterations; iter++) {
@@ -115,11 +110,14 @@ public abstract class SubGoalController implements Serializable,RLController {
 
                 model = new Simulation(this, use_gui, randSeed);
                 //SGC = new SubGoalController(algorithm, "CQL", model, rand,  use_gui, debugging);
+                assignedGoals = new HashSet<>();
                 subGoalActivation = new HashMap<>();
                 backup = model.getAgents().get(0);
 
+                subGoals = new OrthogonalSubGoals((int)fireLocation[0],(int)fireLocation[1], distMap, algorithm, model.getAllCells());
+
+
                 initSubGoalOrder();
-                updateDistMap(subGoalActivation);
 
                 train();
                 costArr[iter] = getCost();
@@ -164,11 +162,11 @@ public abstract class SubGoalController implements Serializable,RLController {
 
     public void updateDistMap(HashMap<Agent, HashMap<String, List<IndexActLink>>> subGoalOrder){
         for (Agent a:model.getAgents()){
-            for (String key : distMap.keySet()){
-                updateDistMap(key, a, subGoalOrder.get(a).get(key));
+            for (String goal : distMap.keySet()){
+                updateDistMap(goal, a, subGoalOrder.get(a).get(goal));
             }
             subGoals.selectClosestSubGoal(a);
-            goalToCostMap.get(subGoals.getAgentGoals().get(a)).setStateX(getInputSet(subGoals.getNextGoal(a),a));
+            goalToCostMap.get(subGoals.getAgentGoals().get(a)).setStateX(getInputSet(subGoals.getAgentGoals().get(a),a));
         }
     }
 
@@ -329,13 +327,14 @@ public abstract class SubGoalController implements Serializable,RLController {
         if (debugging) {
             printSubGoalActivation();
         }
+        updateDistMap(subGoalActivation);
     }
 
 
     private void updateGoalsHit(Agent agent){
         if (agent.isCutting()){
             model.goalsHit++;
-            goalToCostMap.get(subGoals.getAgentGoals().get(agent)).setStateXPrime(getInputSet(subGoals.getNextGoal(agent),agent));
+            goalToCostMap.get(subGoals.getAgentGoals().get(agent)).setStateXPrime(getInputSet(subGoals.getNextAgentGoal(agent),agent));
         }
         if (debugging){
             System.out.println("# of goals hit: " + model.goalsHit);
@@ -371,6 +370,21 @@ public abstract class SubGoalController implements Serializable,RLController {
             }
         }
         return min;
+    }
+
+    private void checkAgent(Agent a){
+        boolean b = subGoals.getAgentGoals().containsKey(a);
+        System.out.println("Agent #" + a.getId() + " of model contained in subGoals list?: " + b);
+        for (Agent a2 : subGoals.getAgentGoals().keySet()){
+            System.out.println("hashCode agent model: " + a.hashCode() + " -> hashcode agent subGoals: " + a2.hashCode());
+        }
+
+    }
+
+    protected void checkAgents(){
+        for (Agent a : model.getAgents()) {
+            checkAgent(a);
+        }
     }
 
     protected void takeScreenShot(){
@@ -515,7 +529,7 @@ public abstract class SubGoalController implements Serializable,RLController {
     }
 
     public String getNextGoal(Agent a){
-        return subGoals.getNextGoal(a);
+        return subGoals.getNextAgentGoal(a);
     }
 
     public void setNextGoal(Agent a){

@@ -32,10 +32,8 @@ public class DeepQLearner extends SubGoalController implements Serializable {
     private double inputBatch[][];
     private double outputBatch[][];
 
-    private MLP mlp;
+    protected MLP mlp;
     private Random rand;
-//    private OrthogonalSubGoals subGoals;
-    private Simulation model;
 
     //Variables needed for debugging:
     /* IF RANDOM SEED IN SIMULATION CLASS == 0
@@ -48,8 +46,6 @@ public class DeepQLearner extends SubGoalController implements Serializable {
      6 -> d=5
      6 -> d=6
      */
-
-    private Agent backup; //If the final agent has died, the MLP still needs an agent to determine the inputVector of the MLP
 
     //Fields for functionality of navigation and fitness
     private int lowestCost;
@@ -129,7 +125,6 @@ public class DeepQLearner extends SubGoalController implements Serializable {
 
         double[] trainInput = oldState;
         double[] trainOutput = oldValue;
-
         addToInputBatch(trainInput);
         addToOutputBatch(trainOutput);
 
@@ -144,8 +139,10 @@ public class DeepQLearner extends SubGoalController implements Serializable {
             mlp.updateMLP(inputBatch, outputBatch);
         }
 
-        oldValue = getQ(oldState);
-        System.out.println(Arrays.toString(oldState)+" -> "+Arrays.toString(oldValue));
+        if (debugging) {
+            oldValue = getQ(oldState);
+            System.out.println(Arrays.toString(oldState) + " -> " + Arrays.toString(oldValue));
+        }
     }
 
 //    @Override
@@ -175,17 +172,21 @@ public class DeepQLearner extends SubGoalController implements Serializable {
 //    }
 
     protected void initRL(){
-        model = new Simulation(this);
-
         double[] fire=f.locationCenterFireAndMinMax(model);
         int minY=(int)Math.min(fire[1], (model.getAllCells().get(0).size()-fire[1]));
         int minX=(int)Math.min(fire[0], (model.getAllCells().size()-fire[0]));
         sizeOutput = Math.min(minX,minY);
+        sizeHidden = 50;
         sizeInput = getInputSet("WW", model.getAgents().get(0)).length;
 
-        batchNr = 0;
+        gamma = 0.1f;
+        alpha = 0.001f;
+
+        batchSize = 1;
         inputBatch = new double[batchSize][sizeInput];
         outputBatch = new double[batchSize][sizeOutput];
+
+        System.out.println("batchSize: " + batchSize);
 
         mlp = new MLP(sizeInput, sizeHidden, sizeOutput, alpha, batchSize, new Random().nextLong());
     }
@@ -223,6 +224,7 @@ public class DeepQLearner extends SubGoalController implements Serializable {
         for (int i = 0; i<in.length; i++){
             input[0][i] = in[i];
         }
+
         double activation[][] = mlp.getOutput(input);
         double output[]= new double[activation.length];
         for (int i = 0; i<activation.length; i++){

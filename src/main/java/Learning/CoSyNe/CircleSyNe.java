@@ -3,6 +3,7 @@ package Learning.CoSyNe;
 import Learning.Features;
 import Learning.Fitness;
 import Model.Agent;
+import Model.Simulation;
 import org.neuroph.util.TransferFunctionType;
 
 import java.io.Serializable;
@@ -119,5 +120,10 @@ public class CircleSyNe extends CoSyNe implements Serializable {
     @Override
     protected double defCertainty(){
         return 1;
+    }
+
+    protected void resetSimulation(){
+        model = new Simulation(this, use_gui, randSeed);
+        resetSubGoals();
     }
 }

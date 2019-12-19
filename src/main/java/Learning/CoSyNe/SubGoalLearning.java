@@ -25,31 +25,27 @@ import static java.lang.Double.NaN;
  * While it is a RLcontroller, we will not be using it as such, since we're not picking actions but defining subgoals
  */
 public class SubGoalLearning extends CoSyNe  {
-
-    private final List<String> subGoalKeys = Arrays.asList(new String[]{"WW", "SW", "SS", "SE", "EE", "NE", "NN", "NW"});
-
-
     public SubGoalLearning(){
         super();
         //model = new Simulation(false);  //Not Simulation(this), since we don't pick the individual moves
         //train();
     }
-
-    protected void initSubGoalOrder(){ //TODO: If rand float< exploreRate -> make random dist array, otherwise use order of activations
-        for (Agent a:model.getAgents()){
-            HashMap<String, List<SubGoalController.IndexActLink>> activationMap = new HashMap<>();
-            for (String s:subGoalKeys){
-                mlp.setInput(getInput(s, a));
-                mlp.calculate();
-                double[] outputSet = mlp.getOutput();
-                List<SubGoalController.IndexActLink> outputList = determineOrder(outputSet);
-
-                activationMap.put(s, outputList);
-            }
-            subGoalActivation.put(a, activationMap);
-        }
-        updateDistMap(subGoalActivation);
-    }
+//
+//    protected void initSubGoalOrder(){ //TODO: If rand float< exploreRate -> make random dist array, otherwise use order of activations
+//        for (Agent a:model.getAgents()){
+//            HashMap<String, List<SubGoalController.IndexActLink>> activationMap = new HashMap<>();
+//            for (String s:subGoalKeys){
+//                mlp.setInput(getInput(s, a));
+//                mlp.calculate();
+//                double[] outputSet = mlp.getOutput();
+//                List<SubGoalController.IndexActLink> outputList = determineOrder(outputSet);
+//
+//                activationMap.put(s, outputList);
+//            }
+//            subGoalActivation.put(a, activationMap);
+//        }
+//        updateDistMap(subGoalActivation);
+//    }
 
     /**
      * The original testMLP assume that this is the RL controller, but that's not the case.
@@ -58,43 +54,59 @@ public class SubGoalLearning extends CoSyNe  {
     @Override
     protected void testMLP(){
 
+        JFrame frame;
+        if(use_gui){
+            frame = createMainFrame();
+        }
 
-        initSubGoalOrder();
+        if ((debugging)&&use_gui){
+            //model.applyUpdates();
+            sleep(500);
+            //SGC.screenshot(run, iter);
+        }
+
+        if (debugging){
+            printFinalDistMap();
+            // printGoalToCoastMap();
+        }
+
+        model.start();
+
+
 
         //model.setSubGoals(dist);
         //System.out.println(Arrays.toString( model.getSubGoals()));
+        double fitness = getFitness();
 
-
-        model.start();
         for(int layer = 0; layer < weightBags.size(); layer++){
             for(int neuron = 0; neuron < weightBags.get(layer).size(); neuron++){
                 for(int weight = 0; weight < weightBags.get(layer).get(neuron).size(); weight++){
                     WeightBag bag = weightBags.get(layer).get(neuron).get(weight);
-                    bag.updateFitness(getFitness());
+                    bag.updateFitness(fitness);
                 }
             }
         }
-        mean_perfomance += getFitness();
-        if(best_performance == null || getFitness() < best_performance){
-            best_performance = getFitness();
+        mean_perfomance += fitness;
+        if(best_performance == null || fitness < best_performance){
+            best_performance = fitness;
         }
         if(ultimate_performance == null || getFitness() < ultimate_performance){    //take screenshot
-            model = new Simulation(false);
-            model.getParameter_manager().changeParameter("Model", "Step Time", 1000f);
-            JFrame f = new MainFrame(model);
-            subGoalActivation = null;
-            initSubGoalOrder();
-            model.start();
-            try {
-                Thread.sleep(Math.abs(1000));
-            } catch (java.lang.InterruptedException e) {
-                System.out.println(e.getMessage());
-            }
-            screenshot(0, (int) getFitness());
-            ultimate_performance = getFitness();
-            f.dispose();
+            ultimate_performance = fitness;
         }
-        model = new Simulation(false);
+
+        if (debugging){
+            printFinalDistMap();
+        }
+
+        if (use_gui){
+            disposeMainFrame(frame);
+        }
+    }
+
+    @Override
+    protected void resetSimulation() {
+        model = new Simulation(this, use_gui, randSeed);
+        resetSubGoals();
     }
 
     /**
@@ -132,12 +144,12 @@ public class SubGoalLearning extends CoSyNe  {
 
     @Override
     protected int defBagSize() {
-        return 30;
-    }
+        return 10;
+    } //TODO: look into effect of bag size
 
     @Override
     protected int defGenerationSize() {
-        return defBagSize()*10;
+        return defBagSize()*5;
     }
 
     @Override
@@ -147,21 +159,14 @@ public class SubGoalLearning extends CoSyNe  {
 
     @Override
     protected int defN_children() {
-        return 10;
-    }
-
-    protected double[] getInput(String s, Agent a) {
-        if(f == null){
-            f = new Features();
-        }
-        return f.getInputSet(model, a, s);
+        return 5;
     }
 
     @Override
     protected double getFitness() {
-        Fitness fit = new Fitness();
+        int[] costArr = getCost();
 
-        return fit.totalFuelBurnt(model);
+        return costArr[0]+costArr[1]+costArr[2];
     }
 
     @Override

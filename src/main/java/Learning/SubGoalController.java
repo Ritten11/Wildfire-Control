@@ -20,11 +20,11 @@ import java.util.stream.Stream;
 
 public abstract class SubGoalController implements Serializable,RLController {
 
-    private final int max_runs = 2;
+    private final int max_runs = 1;
     private int run=0;
     protected static int iter=0;
     private static int nrErrors = 0;
-    protected int iterations = 500;
+    protected int iterations = 1000;
     protected float explorationRate;
     protected float exploreDiscount = explorationRate/iterations;
 
@@ -34,7 +34,7 @@ public abstract class SubGoalController implements Serializable,RLController {
     //Variables needed for debugging:
     protected final static boolean use_gui = false;
     protected final static boolean debugging = false;
-    protected final static int timeActionShown = 250;
+    protected final static int timeActionShown = 100;
     protected int showActionFor;
     protected long randSeed = 0;
     /* IF RANDOM SEED IN SIMULATION CLASS == 0
@@ -100,24 +100,17 @@ public abstract class SubGoalController implements Serializable,RLController {
 
             model = new Simulation(false);
             // init subGoals
-            double fireLocation[] = f.locationCenterFireAndMinMax(model);
 
             initRL();
 
             for (iter = 0; iter < iterations; iter++) {
+                if (debugging) {
+                    System.out.println("Current iteration:" + iter + " <-------------------------------");
+                }
                 randSeed++;
                 showActionFor = timeActionShown;
 
-                model = new Simulation(this, use_gui, randSeed);
-                //SGC = new SubGoalController(algorithm, "CQL", model, rand,  use_gui, debugging);
-                assignedGoals = new HashSet<>();
-                subGoalActivation = new HashMap<>();
-                backup = model.getAgents().get(0);
-
-                subGoals = new OrthogonalSubGoals((int)fireLocation[0],(int)fireLocation[1], distMap, algorithm, model.getAllCells());
-
-
-                initSubGoalOrder();
+                resetSimulation();
 
                 train();
                 costArr[iter] = getCost();
@@ -145,13 +138,11 @@ public abstract class SubGoalController implements Serializable,RLController {
             double[] input = getInputSet(key, agent);
 
             setDistance(list, key);
-//
-//            System.out.println(key + " " + goalToCostMap.keySet().contains(key) + " size map: " + goalToCostMap.keySet().size());
+            double[] in = goalToCostMap.get(key).stateX;
             goalToCostMap.get(key).setStateX(input);
-//                double[] in = goalToCostMap.get(key).stateX;
-//                if (debugging) {
-//                    System.out.println("Input changed to " + Arrays.toString(goalToCostMap.get(key).stateX) + " from " + Arrays.toString(in));
-//                }
+            if (debugging) {
+                System.out.println("Input changed to " + Arrays.toString(goalToCostMap.get(key).stateX) + " from " + Arrays.toString(in));
+            }
 
         } else {
             if (debugging) {
@@ -162,7 +153,7 @@ public abstract class SubGoalController implements Serializable,RLController {
 
     public void updateDistMap(HashMap<Agent, HashMap<String, List<IndexActLink>>> subGoalOrder){
         for (Agent a:model.getAgents()){
-            for (String goal : distMap.keySet()){
+            for (String goal : subGoalKeys){
                 updateDistMap(goal, a, subGoalOrder.get(a).get(goal));
             }
             subGoals.selectClosestSubGoal(a);
@@ -217,13 +208,6 @@ public abstract class SubGoalController implements Serializable,RLController {
                 return  nextAction;
             }
             // TODO: This piece of code is ugly as hell, come up with better solution
-//            if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
-//                subGoals.removeGoalReached(a);
-//                backup = a;
-//                if (debugging) {
-//                    System.out.println("Nr of Agents: " + model.getAgents().size());
-//                }
-//            }
         } else { //Once all goals have been reached, the agent should stop moving as there is no use for it anymore.
             return "Do Nothing";
         }
@@ -246,10 +230,10 @@ public abstract class SubGoalController implements Serializable,RLController {
                 System.out.println("Nr of Agents: " + model.getAgents().size());
             }
         }
-        if (use_gui) {
+        if (use_gui && !action.equals("Do Nothing")) {
             if (showActionFor > 0) {
                 sleep(showActionFor);
-                showActionFor -= 1;
+                showActionFor -= 0;
             }
         }
     }
@@ -323,9 +307,6 @@ public abstract class SubGoalController implements Serializable,RLController {
                 activationMap.put(s, outputList);
             }
             subGoalActivation.put(a, activationMap);
-        }
-        if (debugging) {
-            printSubGoalActivation();
         }
         updateDistMap(subGoalActivation);
     }
@@ -453,13 +434,22 @@ public abstract class SubGoalController implements Serializable,RLController {
             System.out.println("Unable to make directory");
         }
     }
-//    private void resetSimulation(String error){
-//        System.out.println("UNEXPECTED ERROR: (" + error + ") OCCURRED, DISCARDING CURRENT MODEL AND STARTING NEW");
-//        nrErrors++;
-//        System.out.println("Distance Map: " + Collections.singletonList(distMap));
-//        takeScreenShot();
-//        trainMLP();
-//    }
+
+    protected abstract void resetSimulation();
+
+    protected void resetSubGoals(){
+        //SGC = new SubGoalController(algorithm, "CQL", model, rand,  use_gui, debugging);
+        assignedGoals = new HashSet<>();
+        subGoalActivation = new HashMap<>();
+        backup = model.getAgents().get(0);
+
+        double fireLocation[] = f.locationCenterFireAndMinMax(model);
+
+        subGoals = new OrthogonalSubGoals((int)fireLocation[0],(int)fireLocation[1], distMap, algorithm, model.getAllCells());
+
+
+        initSubGoalOrder();
+    }
 
     private String dirGenerator(){
         return System.getProperty("user.dir") + "/results/Q-Learning/" + algorithm + "/" + model.getNr_agents() + "_agent_environment";
@@ -563,9 +553,9 @@ public abstract class SubGoalController implements Serializable,RLController {
 //    }
 //
     public class InputCost{
-        double[] stateX;
-        double[] stateXPrime;
-        int cost;
+        private double[] stateX;
+        private double[] stateXPrime;
+        private int cost;
 
         private InputCost(){}
 

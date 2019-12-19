@@ -170,6 +170,11 @@ public class DeepQLearner extends SubGoalController implements Serializable {
 //            }
 //        }
 //    }
+    @Override
+    protected void resetSimulation(){
+        model = new Simulation(this,use_gui,randSeed);
+        resetSubGoals();
+    }
 
     protected void initRL(){
         double[] fire=f.locationCenterFireAndMinMax(model);

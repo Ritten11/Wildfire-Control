@@ -47,9 +47,9 @@ public class Main {
 		} else if (args.length > 0 && args[0].equals("sub")){
 			new SubGoalLearning();
 		}
-//		else if (args.length > 0 && args[0].equals("subSyne")){
-//			new SubSyne();
-//		}
+		else if (args.length > 0 && args[0].equals("CoSyNe_SubGoals")){
+			new SubGoalLearning();
+		}
 		else if (args.length > 0 && args[0].equals("HRL")){
 			new ActionLearner();
 		} else {

@@ -112,4 +112,9 @@ public class ActionLearner extends SubSyne {
         return fit.totalFuelBurnt(model);
     }
 
+    protected void resetSimulation(){
+        model = new Simulation(this, use_gui, randSeed);
+        resetSubGoals();
+    }
+
 }

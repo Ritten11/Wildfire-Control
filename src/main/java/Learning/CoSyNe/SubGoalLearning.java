@@ -103,6 +103,8 @@ public class SubGoalLearning extends CoSyNe  {
         }
     }
 
+    protected String defRLMethod() {return "CoSyNe";}
+
     @Override
     protected void resetSimulation() {
         model = new Simulation(this, use_gui, randSeed);

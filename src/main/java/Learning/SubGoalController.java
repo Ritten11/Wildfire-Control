@@ -20,6 +20,8 @@ import java.util.stream.Stream;
 
 public abstract class SubGoalController implements Serializable,RLController {
 
+    protected static String RLMethod;
+
     private final int max_runs = 1;
     private int run=0;
     protected static int iter=0;
@@ -85,6 +87,9 @@ public abstract class SubGoalController implements Serializable,RLController {
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
     public SubGoalController(){
+
+        RLMethod = defRLMethod();
+
         f = new Features();
         fit = new Fitness();
         rand = new Random();
@@ -452,7 +457,7 @@ public abstract class SubGoalController implements Serializable,RLController {
     }
 
     private String dirGenerator(){
-        return System.getProperty("user.dir") + "/results/Q-Learning/" + algorithm + "/" + model.getNr_agents() + "_agent_environment";
+        return System.getProperty("user.dir") + "/results/" + RLMethod + "/" + algorithm + "/" + model.getNr_agents() + "_agent_environment";
     }
 
 //    private void writePerformanceFile(){
@@ -513,6 +518,8 @@ public abstract class SubGoalController implements Serializable,RLController {
     protected abstract void train();
 
     protected abstract void initRL();
+
+    protected abstract String defRLMethod();
 
     public double getDist(String key){
         return distMap.get(key);

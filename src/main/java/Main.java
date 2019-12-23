@@ -9,20 +9,19 @@ import Learning.GA;
 import Learning.HumanController;
 import Model.Simulation;
 import View.MainFrame;
-
-// Roel:
-
+import org.apache.commons.lang3.time.StopWatch;
 
 public class Main {
 	public static void main(String[] args) {
+
+		StopWatch watch = new StopWatch();
+		watch.start();
+
 		boolean use_gui;
 		if (args.length > 0 && args[0].equals("no_gui")) {
-			final long startTime = System.currentTimeMillis();
 			System.out.println("NO GUI!");
 			use_gui = false;
 			new Simulation(use_gui).start();
-			final long endTime = System.currentTimeMillis();
-			System.out.println("Total execution time: " + (endTime - startTime));
 		} else if (args.length > 0 && args[0].equals("cosyne_gui")) {
 			System.out.println("CoSyNe gui");
 			//new GA();
@@ -30,8 +29,8 @@ public class Main {
 		} else if (args.length > 0 && args[0].equals("GA")) {
 			System.out.println("GA");
 			new GA();
-		} else if(args.length > 0 && args[0].equals("DQ")){
-			System.out.println("Deep Q");
+		} else if(args.length > 0 && args[0].equals("CQL")){
+			System.out.println("CQL");
 			new DeepQLearner();
 
 		} else if (args.length > 0 && args[0].equals("BURLAP")) {

@@ -265,6 +265,8 @@ public class DeepQLearner extends SubGoalController implements Serializable {
         return min;
     }
 
+    protected String defRLMethod() {return "Q_learning";}
+
     protected JFrame createMainFrame(){
         JFrame f = new MainFrame(model);
         sleep(1000);

@@ -54,6 +54,8 @@ public class CircleSyNe extends CoSyNe implements Serializable {
         }
     }
 
+    protected String defRLMethod() {return "CircleSyNe";}
+
     @Override
     protected int defN_generations() {
         return 200;

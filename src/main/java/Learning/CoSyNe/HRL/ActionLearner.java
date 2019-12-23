@@ -66,6 +66,8 @@ public class ActionLearner extends SubSyne {
         model = new Simulation(this);
     }
 
+    protected String defRLMethod() {return "ActionLearner";}
+
     @Override
     /**
      * Changed printPerformance to add some more insights relevant to the HRL

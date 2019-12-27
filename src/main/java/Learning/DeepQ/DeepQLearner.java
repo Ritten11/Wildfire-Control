@@ -33,7 +33,6 @@ public class DeepQLearner extends SubGoalController implements Serializable {
     private double outputBatch[][];
 
     protected MLP mlp;
-    private Random rand;
 
     //Variables needed for debugging:
     /* IF RANDOM SEED IN SIMULATION CLASS == 0
@@ -52,8 +51,8 @@ public class DeepQLearner extends SubGoalController implements Serializable {
     private int[][] costArr;
 
 
-    public DeepQLearner(){
-        super();
+    public DeepQLearner(int nrAgents){
+        super(nrAgents);
     }
 
     protected void train(){
@@ -116,9 +115,6 @@ public class DeepQLearner extends SubGoalController implements Serializable {
     private void train(double[] oldState, double[] newState, int action, int reward){
 
         double[] oldValue = getQ(oldState);
-
-        System.out.println(Arrays.toString(oldState)+" -> " +Arrays.toString(oldValue));
-
         double[] newValue = getQ(newState);
 
         oldValue[action] = reward + gamma* minValue(newValue);
@@ -131,8 +127,8 @@ public class DeepQLearner extends SubGoalController implements Serializable {
         batchNr++;
 
         if (batchNr%batchSize==0){
-            System.out.println("Updating MLP");
             if (debugging){
+                System.out.println("Updating MLP");
                 System.out.println("For action: " + action);
             }
             batchNr = 0;
@@ -172,7 +168,7 @@ public class DeepQLearner extends SubGoalController implements Serializable {
 //    }
     @Override
     protected void resetSimulation(){
-        model = new Simulation(this,use_gui,randSeed);
+        model = new Simulation(this,use_gui,randSeed, nrAgents);
         resetSubGoals();
     }
 
@@ -190,8 +186,6 @@ public class DeepQLearner extends SubGoalController implements Serializable {
         batchSize = 1;
         inputBatch = new double[batchSize][sizeInput];
         outputBatch = new double[batchSize][sizeOutput];
-
-        System.out.println("batchSize: " + batchSize);
 
         mlp = new MLP(sizeInput, sizeHidden, sizeOutput, alpha, batchSize, new Random().nextLong());
     }

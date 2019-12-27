@@ -125,7 +125,7 @@ public class CircleSyNe extends CoSyNe implements Serializable {
     }
 
     protected void resetSimulation(){
-        model = new Simulation(this, use_gui, randSeed);
+        model = new Simulation(this, use_gui, randSeed, nrAgents);
         resetSubGoals();
     }
 }

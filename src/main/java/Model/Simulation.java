@@ -65,7 +65,7 @@ public class Simulation extends Observable implements Serializable, Observer {
 	private Generator generator;
 	private RLController rlController;
 
-	public Simulation(boolean use_gui, long seed) {
+	public Simulation(boolean use_gui, long seed, int nrAgents) {
 		this.use_gui = use_gui;
 
 //		// Randomization initialization
@@ -79,7 +79,7 @@ public class Simulation extends Observable implements Serializable, Observer {
 		states = new ArrayList<>();
 
 		// Initialize the parameters to some default values and make them available for drawing
-		create_parameters();
+		create_parameters(nrAgents);
 
 		parameter_manager = new ParameterManager(this);
 		parameter_manager.addObserver(this);
@@ -136,12 +136,12 @@ public class Simulation extends Observable implements Serializable, Observer {
 	 * Currently this does show a GUI with new MainFrame, but this can be removed for actual learning.
 	 * @param controller
 	 */
-	public Simulation(RLController controller) {
-		this(controller, false, -1);
+	public Simulation(RLController controller, int nrAgents) {
+		this(controller, false, -1, nrAgents);
 	}
 
-	public Simulation(RLController controller, boolean use_gui, long seed) {
-		this(use_gui, seed);
+	public Simulation(RLController controller, boolean use_gui, long seed, int nrAgents) {
+		this(use_gui, seed, nrAgents);
 //		if(generateRandom){
 //			System.out.println("WARNING! GENERATING RANDOM MIGHT CAUSE NPE");
 //		}
@@ -152,8 +152,8 @@ public class Simulation extends Observable implements Serializable, Observer {
 		parameter_manager.changeParameter("Model", "Step Time", 0f);
 	}
 
-	public Simulation(boolean use_gui){
-	    this(use_gui, -1);
+	public Simulation(boolean use_gui, int nrAgents){
+	    this(use_gui, -1, nrAgents);
     }
 
 
@@ -162,10 +162,10 @@ public class Simulation extends Observable implements Serializable, Observer {
 	 * Due to HashMap restrictions it only works with Strings and Floats, so you should initialize a value with 3f.
 	 * If you want to access the value of a parameter do parameters.get("Parameter name").floatValue()
 	 */
-	private void create_parameters() {
+	private void create_parameters(int nrAgents) {
 		width = 20; //50
 		height = 20; //50
-		nr_agents = 4;
+		nr_agents = nrAgents;
 		energyAgents = 50;
 		if (use_gui) {
 			step_time = 100;

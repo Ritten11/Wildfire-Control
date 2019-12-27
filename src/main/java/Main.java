@@ -18,43 +18,47 @@ public class Main {
 		watch.start();
 
 		boolean use_gui;
-		if (args.length > 0 && args[0].equals("no_gui")) {
+		if (args.length == 1 && args[0].equals("no_gui")) {
 			System.out.println("NO GUI!");
 			use_gui = false;
-			new Simulation(use_gui).start();
-		} else if (args.length > 0 && args[0].equals("cosyne_gui")) {
+			new Simulation(use_gui, 1).start();
+		} else if (args.length == 1 && args[0].equals("cosyne_gui")) {
 			System.out.println("CoSyNe gui");
 			//new GA();
 			new CircleSyNe();
-		} else if (args.length > 0 && args[0].equals("GA")) {
+		} else if (args.length == 1 && args[0].equals("GA")) {
 			System.out.println("GA");
 			new GA();
-		} else if(args.length > 0 && args[0].equals("CQL")){
-			System.out.println("CQL");
-			new DeepQLearner();
-
-		} else if (args.length > 0 && args[0].equals("BURLAP")) {
+		}  else if (args.length == 1 && args[0].equals("BURLAP")) {
 			BURLAP test = new BURLAP();
 			test.example();
-		} else if (args.length > 0 && args[0].equals("human")) {
+		}else if (args.length == 1 && args[0].equals("HRL")){
+			new ActionLearner();
+		} else if (args.length > 0 && args[0].equals("CQL")){
+            new DeepQLearner(1);
+        } else if (args.length > 0 && args[0].equals("CoSyNe_SubGoals")){
+            new SubGoalLearning(1);
+        }else if (args.length == 1 && args[0].equals("human")) {
 			HumanController hc = new HumanController();
-			Simulation s = new Simulation(hc);
+			Simulation s = new Simulation(hc, 1);
 			hc.setModel(s);
 			MainFrame f = new MainFrame(s);
 			f.simulationPanel.addKeyListener(hc);
 			hc.simulationPanel = f.simulationPanel;
-		} else if (args.length > 0 && args[0].equals("sub")){
-			new SubGoalLearning();
+		} else if(args.length > 1 && Integer.parseInt(args[1]) > 0 && Integer.parseInt(args[1]) <= 8) {
+			if (args[0].equals("CQL")){
+				System.out.println("CQL");
+				new DeepQLearner(Integer.parseInt(args[1]));
+
+			}else if (args[0].equals("sub")){
+				new SubGoalLearning(Integer.parseInt(args[1]));
+			}
+			else if (args[0].equals("CoSyNe_SubGoals")){
+				new SubGoalLearning(Integer.parseInt(args[1]));
+			}
 		}
-		else if (args.length > 0 && args[0].equals("CoSyNe_SubGoals")){
-			new SubGoalLearning();
-		}
-		else if (args.length > 0 && args[0].equals("HRL")){
-			new ActionLearner();
-		} else {
-			use_gui = true;
-			Simulation model = new Simulation(use_gui);
-			new MainFrame(model);
+		 else {
+			System.out.println("Oops, something went wrong... Please check whether you entered the arguments in the right order (STRING, INT, STRING)");
 
 			/*// Roel:
 			Features features = new Features();

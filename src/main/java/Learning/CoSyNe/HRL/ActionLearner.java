@@ -50,7 +50,7 @@ public class ActionLearner extends SubSyne {
         if(ultimate_performance == null || getFitness() < ultimate_performance){    //take screenshot
             ultimate_performance = getFitness();
 
-            model = new Simulation(this);
+            model = new Simulation(this, nrAgents);
             model.getParameter_manager().changeParameter("Model", "Step Time", 1000f);
             JFrame f = new MainFrame(model);
             model.applySubgoals();
@@ -63,7 +63,7 @@ public class ActionLearner extends SubSyne {
             screenshot(0, (int) getFitness());
             f.dispose();
         }
-        model = new Simulation(this);
+        model = new Simulation(this, nrAgents);
     }
 
     protected String defRLMethod() {return "ActionLearner";}
@@ -115,7 +115,7 @@ public class ActionLearner extends SubSyne {
     }
 
     protected void resetSimulation(){
-        model = new Simulation(this, use_gui, randSeed);
+        model = new Simulation(this, use_gui, randSeed, nrAgents);
         resetSubGoals();
     }
 

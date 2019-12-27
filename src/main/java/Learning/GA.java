@@ -161,7 +161,7 @@ public class GA implements RLController {
         //Have every MLP perform the simulation and fetch their fitness
         for (Map.Entry entry : mlpList) {
             current_mlp = (MultiLayerPerceptron) entry.getKey();
-            current_model = new Simulation(this);
+            current_model = new Simulation(this, 1);
 
             current_model.start();
 
@@ -178,7 +178,7 @@ public class GA implements RLController {
             //If it's a new best run the simulation again and take a screenshot
             if(best != -1 && scores[i] < best){
                 current_mlp = (MultiLayerPerceptron) entry.getKey();
-                current_model = new Simulation(this);
+                current_model = new Simulation(this,1);
                 current_model.getParameter_manager().changeParameter("Model", "Step Time", 1000f);
 
                 JFrame f = new MainFrame(current_model);
@@ -282,7 +282,7 @@ public class GA implements RLController {
 
     public double[] getInputs(Simulation model){
         if(model == null){
-           model = new Simulation(false);
+           model = new Simulation(false, 1);
         }
         return features.appendArrays(features.previousAction(), features.cornerVectors(model, false));
     }

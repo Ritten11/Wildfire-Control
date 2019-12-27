@@ -53,7 +53,7 @@ abstract public class SubSyne extends CoSyNe{
         if(ultimate_performance == null || getFitness() < ultimate_performance){    //take screenshot
             ultimate_performance = getFitness();
 
-            model = new Simulation(this);
+            model = new Simulation(this, nrAgents);
             model.applySubgoals();
             model.start();
             takeScreenShot();
@@ -62,7 +62,7 @@ abstract public class SubSyne extends CoSyNe{
         if (use_gui && f!=null){
             disposeMainFrame(f);
         }
-        model = new Simulation(this);
+        model = new Simulation(this, nrAgents);
     }
 
     @Override

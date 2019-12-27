@@ -32,8 +32,12 @@ public abstract class CoSyNe extends SubGoalController {
     protected Integer conf_counter = null;
     protected int generation;
 
+    public CoSyNe(int nrAgents){
+        super(nrAgents);
+    }
+
     public CoSyNe(){
-        super();
+        super(1);
     }
 
     protected void initRL(){
@@ -113,7 +117,7 @@ public abstract class CoSyNe extends SubGoalController {
             best_performance = getFitness();
         }
         if(ultimate_performance == null || getFitness() < ultimate_performance){    //take screenshot
-            model = new Simulation(this);
+            model = new Simulation(this, nrAgents);
 
             JFrame f = new MainFrame(model);
             model.start();

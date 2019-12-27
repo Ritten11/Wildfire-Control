@@ -25,8 +25,8 @@ import static java.lang.Double.NaN;
  * While it is a RLcontroller, we will not be using it as such, since we're not picking actions but defining subgoals
  */
 public class SubGoalLearning extends CoSyNe  {
-    public SubGoalLearning(){
-        super();
+    public SubGoalLearning(int nrAgents){
+        super(nrAgents);
         //model = new Simulation(false);  //Not Simulation(this), since we don't pick the individual moves
         //train();
     }
@@ -107,7 +107,7 @@ public class SubGoalLearning extends CoSyNe  {
 
     @Override
     protected void resetSimulation() {
-        model = new Simulation(this, use_gui, randSeed);
+        model = new Simulation(this, use_gui, randSeed, nrAgents);
         resetSubGoals();
     }
 

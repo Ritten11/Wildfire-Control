@@ -14,7 +14,7 @@ import java.util.Arrays;
 public class GoalLearner extends SubGoalLearning {
 
     public GoalLearner(){
-        super();
+        super(1);
     }
 
 //    /**

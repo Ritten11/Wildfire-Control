@@ -4,15 +4,13 @@ import Model.Agent;
 import Model.Simulation;
 import Navigation.OrthogonalSubGoals;
 import View.MainFrame;
+import org.apache.commons.lang3.time.StopWatch;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Serializable;
+import java.io.*;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -21,9 +19,10 @@ import java.util.stream.Stream;
 public abstract class SubGoalController implements Serializable,RLController {
 
     protected static String RLMethod;
+    protected static int nrAgents;
 
-    private final int max_runs = 1;
-    private int run=0;
+    private final int max_runs = 20;
+    protected int run=0;
     protected static int iter=0;
     private static int nrErrors = 0;
     protected int iterations = 1000;
@@ -39,26 +38,17 @@ public abstract class SubGoalController implements Serializable,RLController {
     protected final static int timeActionShown = 100;
     protected int showActionFor;
     protected long randSeed = 0;
-    /* IF RANDOM SEED IN SIMULATION CLASS == 0
-     0 -> d=0
-     1 -> d=5
-     2 -> d=0
-     3 -> d=4
-     4 -> d=8
-     5 -> d=2 (if the fire is sufficiently far away)
-     6 -> d=5
-     6 -> d=6
-     */
 
     protected Agent backup; //If the final agent has died, the MLP still needs an agent to determine the inputVector of the MLP
 
     //Fields for functionality of navigation and fitness
-    protected String algorithm = "Bresenham";
+    protected String algorithm = "Dijkstra";
     protected Fitness fit;
     protected Features f;
     private int lowestCost;
     private int[][] costArr;
     private Random rand;
+    private StopWatch watch;
 
     protected HashSet<String> assignedGoals;
     protected HashMap<Agent, HashMap<String, List<IndexActLink>>> subGoalActivation;
@@ -86,15 +76,19 @@ public abstract class SubGoalController implements Serializable,RLController {
             new AbstractMap.SimpleEntry<>("NW", new InputCost()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    public SubGoalController(){
+    public SubGoalController(int nrAgents){
 
         RLMethod = defRLMethod();
+        this.nrAgents = nrAgents;
 
         f = new Features();
         fit = new Fitness();
         rand = new Random();
+        watch = new StopWatch();
+
 
         while (run<max_runs) {
+            watch.start();
             run++;
             System.out.println("=====================STARTING RUN #" + run + "==================");
             lowestCost = Integer.MAX_VALUE;
@@ -103,7 +97,7 @@ public abstract class SubGoalController implements Serializable,RLController {
             explorationRate = 0.3f;
 
 
-            model = new Simulation(false);
+            model = new Simulation(false, nrAgents);
             // init subGoals
 
             initRL();
@@ -124,11 +118,13 @@ public abstract class SubGoalController implements Serializable,RLController {
                 }
             }
 
+            watch.stop();
             writePerformanceFile();
 
             if (nrErrors != 0) {
                 System.out.println("Total # of errors occurred: " + nrErrors);
             }
+            watch.reset();
         }
     }
 
@@ -376,7 +372,7 @@ public abstract class SubGoalController implements Serializable,RLController {
     protected void takeScreenShot(){
         JFrame f = createMainFrame();
         sleep(500);
-        screenshot(subGoals.getGoalsReached().size(), lowestCost);
+        screenshot();
         f.dispose();
     }
 
@@ -399,11 +395,11 @@ public abstract class SubGoalController implements Serializable,RLController {
         }
     }
 
-    protected void screenshot(int run, int i){
+    protected void screenshot(){
         Rectangle screenRect = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
         try {
             BufferedImage capture = new Robot().createScreenCapture(screenRect);
-            ImageIO.write(capture, "bmp", new File("./screenshot_run"+ run +"_i_"+i+".bmp"));
+            ImageIO.write(capture, "bmp", new File("./screenshot_run"+ run +"_Algorithm_"+ RLMethod + "_iter_" + iter +".bmp"));
 
         }catch (Exception ex) {
             System.out.println(ex.getMessage());
@@ -415,7 +411,7 @@ public abstract class SubGoalController implements Serializable,RLController {
         File file = new File(dir);
         if (file.mkdirs() || file.isDirectory()) {
             try {
-                FileWriter csvWriter = new FileWriter(dir + "/run" + run + ".csv");
+                FileWriter csvWriter = new FileWriter(dir + "/run_" + run + ".csv");
                 csvWriter.append("Iteration");
                 csvWriter.append(",");
                 csvWriter.append("BurnCost");
@@ -431,6 +427,17 @@ public abstract class SubGoalController implements Serializable,RLController {
 
                 csvWriter.flush();
                 csvWriter.close();
+            } catch (IOException e) {
+                System.out.println("Some IO-exception occurred");
+                e.printStackTrace();
+            }
+            try {
+                BufferedWriter writer = new BufferedWriter(
+                        new FileWriter(file + "/run_durations.csv", true)  //Set true for append mode
+                );
+                writer.write(watch.getTime() + "");
+                writer.newLine();   //Add new line
+                writer.close();
             } catch (IOException e) {
                 System.out.println("Some IO-exception occurred");
                 e.printStackTrace();

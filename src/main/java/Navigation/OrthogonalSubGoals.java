@@ -126,6 +126,7 @@ public class OrthogonalSubGoals implements Serializable {
         } else {
             agentGoals.replace(a, keyNearestGoal);
         }
+
         updateAgentGoal(a, keyNearestGoal, subGoals.get(keyNearestGoal), false);
     }
 
@@ -161,12 +162,13 @@ public class OrthogonalSubGoals implements Serializable {
         updateAgentGoal(agent, key, getCorrespondingCell(key), agent.isCutting());
     }
 
-    public String getNextGoal(Agent a){
+    public String getNextAgentGoal(Agent a){
         return getNextGoal(agentGoals.get(a));
     }
 
     public String getNextGoal(String k){
-        return getGoalKey((compassMap.get(k) + 1) % maxNrGoals);
+        String k2 = getGoalKey((compassMap.get(k) + 1) % maxNrGoals);
+        return k2;
     }
 
 

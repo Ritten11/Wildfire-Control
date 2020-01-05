@@ -18,6 +18,7 @@ public class MLP implements Serializable {
     public MLP(int inputNr, int hiddenNr, int outputNr, double alpha, int batchSize, long randSeed) {
         random = new Random(randSeed);
         np.setSeed(randSeed);
+        System.out.println("inputNr: " + inputNr + " hiddenNr: " + hiddenNr + " outputNr: " + outputNr );
         inputHiddenWeights = np.random(hiddenNr, inputNr);
         hiddenOutputWeights = np.random(outputNr,hiddenNr);
         hiddenBias = new double[hiddenNr][batchSize];
@@ -94,14 +95,14 @@ public class MLP implements Serializable {
     }
 
     public double[][] getOutput(double in[][]){
+
+        //printWheights();
         double input[][] = np.T(in);
 
         double Z1[][] = np.add(np.dot(inputHiddenWeights,input),hiddenBias);
         double A1[][] = np.sigmoid(Z1);
-
         double Z2[][] = np.add(np.dot(hiddenOutputWeights,A1),outputBias);
         double A2[][] = np.reLu(Z2); //Making the final output linear instead of sigmoid.
-
         return A2;
     }
 
@@ -118,6 +119,10 @@ public class MLP implements Serializable {
         System.out.println("Hidden -> Output");
         np.printMatrix(hiddenOutputWeights);
         System.out.println("Output bias");
+        np.printMatrix(outputBias);
+    }
+
+    public void printOutputBias(){
         np.printMatrix(outputBias);
     }
 }
@@ -339,6 +344,7 @@ class np {
         int n1 = a[0].length;
         int m2 = b.length;
         int n2 = b[0].length;
+
         if (n1 != m2) {
             throw new RuntimeException("Illegal matrix dimensions.");
         }
@@ -522,7 +528,7 @@ class np {
 
         for (int i = 0; i < m; i++) {
             for (int j = 0; j < n; j++) {
-                z[i][j] = (a[i][j]>1?a[i][j]:0);
+                z[i][j] = (a[i][j]>0?a[i][j]:0);
             }
         }
         return z;

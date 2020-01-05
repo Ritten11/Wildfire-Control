@@ -28,9 +28,7 @@ public class ActionLearner extends SubSyne {
         if(goalLearner == null){
             goalLearner = new GoalLearner();
         }
-        double[] dist = goalLearner.generateGoals(model);
-        model.setSubGoals(dist);
-        model.applySubgoals();
+        initSubGoalOrder();
 
 
         model.start();
@@ -52,7 +50,7 @@ public class ActionLearner extends SubSyne {
         if(ultimate_performance == null || getFitness() < ultimate_performance){    //take screenshot
             ultimate_performance = getFitness();
 
-            model = new Simulation(this);
+            model = new Simulation(this, nrAgents);
             model.getParameter_manager().changeParameter("Model", "Step Time", 1000f);
             JFrame f = new MainFrame(model);
             model.applySubgoals();
@@ -65,8 +63,10 @@ public class ActionLearner extends SubSyne {
             screenshot(0, (int) getFitness());
             f.dispose();
         }
-        model = new Simulation(this);
+        model = new Simulation(this, nrAgents);
     }
+
+    protected String defRLMethod() {return "ActionLearner";}
 
     @Override
     /**
@@ -112,6 +112,11 @@ public class ActionLearner extends SubSyne {
         }
         meanGoalFitness += fit.totalFuelBurnt(model);
         return fit.totalFuelBurnt(model);
+    }
+
+    protected void resetSimulation(){
+        model = new Simulation(this, use_gui, randSeed, nrAgents);
+        resetSubGoals();
     }
 
 }

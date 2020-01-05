@@ -3,6 +3,7 @@ package Learning.CoSyNe;
 import Learning.Features;
 import Learning.Fitness;
 import Model.Agent;
+import Model.Simulation;
 import org.neuroph.util.TransferFunctionType;
 
 import java.io.Serializable;
@@ -17,7 +18,7 @@ public class CircleSyNe extends CoSyNe implements Serializable {
 
     public CircleSyNe(){
         super();
-        performLearning();
+        train();
     }
 
     @Override
@@ -52,6 +53,8 @@ public class CircleSyNe extends CoSyNe implements Serializable {
                 System.out.println("NO ACTION FOR OUTPUT at GA.pickAction");
         }
     }
+
+    protected String defRLMethod() {return "CircleSyNe";}
 
     @Override
     protected int defN_generations() {
@@ -88,14 +91,14 @@ public class CircleSyNe extends CoSyNe implements Serializable {
     protected int defN_children() {
         return 30;
     }
-
-    @Override
-    protected double[] getInput() {
-        if(features == null){
-            features = new Features();
-        }
-        return features.appendArrays(features.previousAction(), features.cornerVectors(model, false));
-    }
+//
+//    @Override
+//    protected double[] getInput() {
+//        if(features == null){
+//            features = new Features();
+//        }
+//        return features.appendArrays(features.previousAction(), features.cornerVectors(model, false));
+//    }
 
     @Override
     protected double getFitness() {
@@ -119,5 +122,10 @@ public class CircleSyNe extends CoSyNe implements Serializable {
     @Override
     protected double defCertainty(){
         return 1;
+    }
+
+    protected void resetSimulation(){
+        model = new Simulation(this, use_gui, randSeed, nrAgents);
+        resetSubGoals();
     }
 }

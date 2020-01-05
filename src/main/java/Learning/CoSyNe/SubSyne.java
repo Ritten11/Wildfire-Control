@@ -15,14 +15,14 @@ import static java.lang.Thread.sleep;
 /**
  * SubSyne class navigates between subgoals. This class is used by the ActionLearner, so changes made here may result in changes in the HRL approach.
  */
-public class SubSyne extends CoSyNe{
+abstract public class SubSyne extends CoSyNe{
 
 
     protected boolean previousaction =true; //Switch for ensuring every other action is a dig
 
     public SubSyne(){
         super();
-        performLearning();
+        //train();
     }
 
     /**
@@ -53,7 +53,7 @@ public class SubSyne extends CoSyNe{
         if(ultimate_performance == null || getFitness() < ultimate_performance){    //take screenshot
             ultimate_performance = getFitness();
 
-            model = new Simulation(this);
+            model = new Simulation(this, nrAgents);
             model.applySubgoals();
             model.start();
             takeScreenShot();
@@ -62,7 +62,7 @@ public class SubSyne extends CoSyNe{
         if (use_gui && f!=null){
             disposeMainFrame(f);
         }
-        model = new Simulation(this);
+        model = new Simulation(this, nrAgents);
     }
 
     @Override
@@ -133,22 +133,22 @@ public class SubSyne extends CoSyNe{
         return 5;
     }
 
-    @Override
-    /**
-     * Input is the scaled x&y difference to the next subgoal
-     */
-    protected double[] getInput() {
-        return getInput("WW");
-    }
-
-    protected double[] getInput(String goal) {
-        if(model == null){
-            model = new Simulation(this);
-            model.applySubgoals();
-        }
-        Agent agent = model.getAgents().get(0);
-        return new Features().getInputSet(model, agent, goal);
-    }
+//    @Override
+//    /**
+//     * Input is the scaled x&y difference to the next subgoal
+//     */
+//    protected double[] getInput() {
+//        return getInput("WW");
+//    }
+//
+//    protected double[] getInput(String goal) {
+//        if(model == null){
+//            model = new Simulation(this);
+//            model.applySubgoals();
+//        }
+//        Agent agent = model.getAgents().get(0);
+//        return new Features().getInputSet(model, agent, goal);
+//    }
 
     @Override
     /**
@@ -159,32 +159,6 @@ public class SubSyne extends CoSyNe{
         Fitness fit = new Fitness();
         int[] costs = fit.totalCosts(model);
         return  (costs[0]+costs[1]+costs[2]);
-    }
-
-    protected JFrame createMainFrame(){
-        JFrame f = new MainFrame(model);
-        sleep(1000);
-        return f;
-    }
-
-    protected void disposeMainFrame(JFrame f){
-        sleep(500);
-        f.dispose();
-    }
-
-    protected void sleep(int t){
-        try {
-            Thread.sleep(Math.abs(t));
-        } catch (java.lang.InterruptedException e) {
-            System.out.println(e.getMessage());
-        }
-    }
-
-    protected void takeScreenShot(){
-        JFrame f = createMainFrame();
-        sleep(500);
-        screenshot(0, (int) getFitness());
-        f.dispose();
     }
 
     @Override

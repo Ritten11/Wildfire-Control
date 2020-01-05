@@ -376,6 +376,9 @@ public class Agent implements Serializable{
     }
 
     public boolean onGoal(){
+        if (subGoal == null) {
+            System.out.println("WARNING: NO SUBGOAL INITIALISED");
+        }
         if (subGoal == null || subGoal.getPath() == null || subGoal.getPath().empty()
                 ||( subGoal.goal.getX() == this.getX() && subGoal.goal.getY() == this.getY())
                 ){
@@ -384,7 +387,7 @@ public class Agent implements Serializable{
         return false;
     }
 
-    public void setSubGoal(SubGoal subGoal) {this.subGoal = subGoal; }
+    public void setSubGoal(SubGoal subGoal) { this.subGoal = subGoal; }
 
     public boolean isAlive() {
         return isAlive;

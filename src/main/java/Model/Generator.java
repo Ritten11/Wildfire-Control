@@ -92,7 +92,7 @@ class Generator implements Serializable {
         // (added zero before everything to test parameters wetlands/urban)
         int numberDirt = rand.nextInt((int) (0.01 * area))/2+5 * (10-wetlands);
         int numberBushes = rand.nextInt((int) (0.01 * area))/2+3 * (10-urban);
-        int numberHouses = rand.nextInt((int) (0.02 * area)) * urban;
+        int numberHouses = 0;//rand.nextInt((int) (0.02 * area)) * urban;
         int numberLakes = rand.nextInt((int) (0.02 * area)) * (wetlands / 2);
         int numberBridges = rand.nextInt(3);
         int numberRivers = wetlands / 2;

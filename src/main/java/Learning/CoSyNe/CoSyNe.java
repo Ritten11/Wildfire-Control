@@ -1,6 +1,8 @@
 package Learning.CoSyNe;
 
+import Learning.Features;
 import Learning.RLController;
+import Learning.SubGoalController;
 import Model.Agent;
 import Model.Simulation;
 import View.MainFrame;
@@ -17,12 +19,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
-public abstract class CoSyNe implements RLController {
+public abstract class CoSyNe extends SubGoalController {
     private List<Integer> MLP_shape;
     //layer, neuron, weight
     protected List<List<List<WeightBag>>> weightBags;
     protected MultiLayerPerceptron mlp;
-    protected Simulation model;
+    protected int outputNeurons = 1;
     protected Double best_performance = null;
     protected Double ultimate_performance = null;
     protected double mean_perfomance;
@@ -30,39 +32,47 @@ public abstract class CoSyNe implements RLController {
     protected Integer conf_counter = null;
     protected int generation;
 
-    protected boolean use_gui = true;
-    private long randSeed = -1;
+    public CoSyNe(int nrAgents){
+        super(nrAgents);
+    }
 
     public CoSyNe(){
+        super(1);
+    }
+
+    protected void initRL(){
         MLP_shape = new ArrayList<>();
-        model = new Simulation(this);
-        MLP_shape.add(getInput().length);
+
+        double[] fire=f.locationCenterFireAndMinMax(model);
+        int minY=(int)Math.min(fire[1], (model.getAllCells().get(0).size()-fire[1]));
+        int minX=(int)Math.min(fire[0], (model.getAllCells().size()-fire[0]));
+        outputNeurons = Math.min(minX,minY);
+
+        MLP_shape.add(getInputSet("WW", model.getAgents().get(0)).length);
         for(int i = 0; i < defHiddenLayers().length; i++){
             MLP_shape.add(defHiddenLayers()[i]);
         }
         MLP_shape.add(defN_outputs());
-        model = new Simulation(this, use_gui, randSeed);
 
         initializeBags();
-
     }
 
     /**
      * The overall generation loop including creating MLPs, testing them, and breeding them
      */
-    protected void performLearning(){
-        for(generation = 0; generation < defN_generations(); generation++){
-            mean_perfomance = 0;
-            for(int test = 0; test < defGenerationSize(); test++){
-                createMLP();
+    protected void train(){ //Implement generations
+        mean_perfomance = 0;
+        for(int test = 0; test < defGenerationSize(); test++){
+            resetSimulation();
 
-                testMLP();
-            }
-            mean_perfomance /= defGenerationSize();
-            printPerformance();
-            best_performance = null;
-            breed();
+            createMLP();
+
+            testMLP();
         }
+        mean_perfomance /= defGenerationSize();
+        printPerformance();
+        best_performance = null;
+        breed();
     }
 
 
@@ -92,7 +102,8 @@ public abstract class CoSyNe implements RLController {
      * Subject the MLP to the simulation so we can establish its fitness.
      */
     protected void testMLP(){
-        model.start();
+
+
         for(int layer = 0; layer < weightBags.size(); layer++){
             for(int neuron = 0; neuron < weightBags.get(layer).size(); neuron++){
                 for(int weight = 0; weight < weightBags.get(layer).get(neuron).size(); weight++){
@@ -106,20 +117,15 @@ public abstract class CoSyNe implements RLController {
             best_performance = getFitness();
         }
         if(ultimate_performance == null || getFitness() < ultimate_performance){    //take screenshot
-            model = new Simulation(this);
+            model = new Simulation(this, nrAgents);
 
             JFrame f = new MainFrame(model);
             model.start();
-            try {
-                Thread.sleep(Math.abs(1000));
-            } catch (java.lang.InterruptedException e) {
-                System.out.println(e.getMessage());
-            }
+            sleep(1000);
             screenshot(0, (int) getFitness());
             ultimate_performance = getFitness();
             f.dispose();
         }
-        model = new Simulation(this);
     }
 
     /**
@@ -170,43 +176,71 @@ public abstract class CoSyNe implements RLController {
         }
     }
 
+//    /**
+//     * Extracts an action integer from the MLPs output. Using SoftMax
+//     * @param a
+//     */
+//    @Override
+//    public void pickAction(Agent a) {
+//        super.pickAction(a);
+//        double[] outputs = getOutput(getInput());
+//
+//
+//        //We apply softMax
+//        double sum = 0;
+//
+//        for(int i = 0; i< outputs.length; i++){
+//            sum = sum + Math.exp(outputs[i]/ defCertainty());
+//        }
+//
+//        double rand = new Random().nextDouble();
+//
+//        double step = 0;
+//        int chosen_action = -1;
+//        while(chosen_action < outputs.length && step < rand){
+//            chosen_action++;
+//            step += Math.exp(outputs[chosen_action]/defCertainty())/sum;
+//        }
+//
+//        if(mean_confidence == null){
+//            mean_confidence = new Double(0);
+//        }
+//        if(conf_counter == null){
+//            conf_counter = new Integer(0);
+//        }
+//        //Log the confidence so that they become printable
+//        mean_confidence = mean_confidence + Math.exp(outputs[chosen_action]/defCertainty())/sum;
+//        conf_counter++;
+//    }
+
     /**
-     * Extracts an action integer from the MLPs output. Using SoftMax
-     * @param a
+     * Get the output from the MLP and uses a ReLu function to get rid of negative numbers
+     * @param input
+     * @return
      */
-    @Override
-    public void pickAction(Agent a) {
-        mlp.setInput(getInput()); //TODO: instead of using an MLP, use the path to a sub-goal.
+    protected double[] getOutput(double[] input){
+
+        //System.out.println("Input: " + Arrays.toString(input));
+        mlp.setInput(input);
         mlp.calculate();
-        double[] outputs = mlp.getOutput();
+        return reLu(mlp.getOutput());
+    }
 
+    /**
+     * Makes every negative enrty equal to 0, does nothing in all other cases
+     * @param a
+     * @return
+     */
+    public static double[] reLu(double[] a){
+        int m = a.length;
+        double[] z = new double[m];
 
-        //We apply softMax
-        double sum = 0;
-
-        for(int i = 0; i< outputs.length; i++){
-            sum = sum + Math.exp(outputs[i]/ defCertainty());
+        for (int i = 0; i < m; i++) {
+            z[i] = (a[i]>0?a[i]:0);
+            //System.out.println("in = " + a[i] + " -> out = " + z[i]);
         }
 
-        double rand = new Random().nextDouble();
-
-        double step = 0;
-        int chosen_action = -1;
-        while(chosen_action < outputs.length && step < rand){
-            chosen_action++;
-            step += Math.exp(outputs[chosen_action]/defCertainty())/sum;
-        }
-
-        if(mean_confidence == null){
-            mean_confidence = new Double(0);
-        }
-        if(conf_counter == null){
-            conf_counter = new Integer(0);
-        }
-        //Log the confidence so that they become printable
-        mean_confidence = mean_confidence + Math.exp(outputs[chosen_action]/defCertainty())/sum;
-        conf_counter++;
-        performAction(chosen_action, a);
+        return z;
     }
 
     /**
@@ -261,12 +295,12 @@ public abstract class CoSyNe implements RLController {
      * @return
      */
     protected abstract int defN_children();
-
-    /**
-     * Get the inputs to the MLP from a model
-     * @return A list of doubles extracted as meaningful features from the model
-     */
-    protected abstract double[] getInput();
+//
+//    /**
+//     * Get the inputs to the MLP from a model
+//     * @return A list of doubles extracted as meaningful features from the model
+//     */
+//    protected abstract double[] getInput();
 
     /**
      * Get the performance the MLP delivered from the model

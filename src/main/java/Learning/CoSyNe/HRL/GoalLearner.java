@@ -14,23 +14,20 @@ import java.util.Arrays;
 public class GoalLearner extends SubGoalLearning {
 
     public GoalLearner(){
-        super();
+        super(1);
     }
 
-    /**
-     * We make our pick, always from a fresh MLP
-     * @param model
-     * @return
-     */
-    public double[] generateGoals(Simulation model){
-        createMLP();    //renew our MLP
-        double[] dist = model.getSubGoals();
-        for(int i = 0; i < dist.length; i++){
-            dist[i] = determineOffset(i, dist.length);
-        }
-        //System.out.println(Arrays.toString(dist));
-        return dist;
-    }
+//    /**
+//     * We make our pick, always from a fresh MLP
+//     * @param model
+//     * @return
+//     */
+//    public double[] generateGoals(Simulation model){
+//        createMLP();    //renew our MLP
+//        initSubGoalOrder();
+//        //System.out.println(Arrays.toString(dist));
+//        return dist;
+//    }
 
     /**
      * The master ActionLearner class determines a fitness for us.
@@ -56,10 +53,10 @@ public class GoalLearner extends SubGoalLearning {
 
 
     /**
-     * We cancel the performLearning, since we don't iterate over generations
+     * We cancel the train, since we don't iterate over generations
      */
     @Override
-    protected void performLearning(){
+    protected void train(){
         return;
     }
 }

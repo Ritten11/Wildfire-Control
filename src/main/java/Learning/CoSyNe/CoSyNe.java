@@ -1,7 +1,5 @@
 package Learning.CoSyNe;
 
-import Learning.Features;
-import Learning.RLController;
 import Learning.SubGoalController;
 import Model.Agent;
 import Model.Simulation;
@@ -14,15 +12,14 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 import java.util.List;
-import java.util.Random;
 
 public abstract class CoSyNe extends SubGoalController {
     private List<Integer> MLP_shape;
     //layer, neuron, weight
     protected List<List<List<WeightBag>>> weightBags;
+    protected List<FitnessToMLP> savedMLPList;
     protected MultiLayerPerceptron mlp;
     protected int outputNeurons = 1;
     protected Double best_performance = null;
@@ -31,6 +28,7 @@ public abstract class CoSyNe extends SubGoalController {
     protected Double mean_confidence = null;
     protected Integer conf_counter = null;
     protected int generation;
+    protected double[] costs;
 
     public CoSyNe(int nrAgents){
         super(nrAgents);
@@ -42,6 +40,8 @@ public abstract class CoSyNe extends SubGoalController {
 
     protected void initRL(){
         MLP_shape = new ArrayList<>();
+        savedMLPList = new ArrayList<>();
+        costs = new double[3];
 
         double[] fire=f.locationCenterFireAndMinMax(model);
         int minY=(int)Math.min(fire[1], (model.getAllCells().get(0).size()-fire[1]));
@@ -60,19 +60,47 @@ public abstract class CoSyNe extends SubGoalController {
     /**
      * The overall generation loop including creating MLPs, testing them, and breeding them
      */
-    protected void train(){ //Implement generations
+    protected void train(boolean saveMLP, boolean finalIter){ //Implement generations
         mean_perfomance = 0;
         for(int test = 0; test < defGenerationSize(); test++){
+
             resetSimulation();
 
             createMLP();
 
             testMLP();
+
+            if (finalIter){
+                savedMLPList.add(new FitnessToMLP(getFitness(), mlp));
+            }
+        }
+        if (finalIter) {
+            Collections.sort(savedMLPList);
         }
         mean_perfomance /= defGenerationSize();
         printPerformance();
         best_performance = null;
         breed();
+    }
+
+    protected void test(){ //Implement generations
+        mean_perfomance = 0;
+        costs = new double[3];
+        for(int i = 0; i < sizeFinalComparison; i++){
+            resetSimulation();
+            mlp = savedMLPList.get(i).mlp;
+            model.start();
+
+            int[] modelCosts = fit.totalCosts(model);
+            costs[0] += modelCosts[0];
+            costs[1] += modelCosts[1];
+            costs[2] += modelCosts[2];
+
+        }
+
+        costs[0] /= sizeFinalComparison;
+        costs[1] /= sizeFinalComparison;
+        costs[2] /= sizeFinalComparison;
     }
 
 
@@ -81,7 +109,11 @@ public abstract class CoSyNe extends SubGoalController {
      */
     protected void printPerformance(){
         System.out.println("Best performance: " + best_performance);
-        System.out.println("Mean perforamcne: " + mean_perfomance);
+        System.out.println("Mean performance: " + mean_perfomance);
+    }
+
+    protected double[] getCost(){
+        return costs;
     }
 
     /**
@@ -143,6 +175,24 @@ public abstract class CoSyNe extends SubGoalController {
             System.out.println(ex.getMessage());
         }
     }
+
+    private class FitnessToMLP implements Comparable<FitnessToMLP> {
+        private final Double fitness;
+        private final MultiLayerPerceptron mlp;
+
+        public FitnessToMLP(double fitness, MultiLayerPerceptron mlp) {
+            this.fitness = fitness;
+            this.mlp = mlp;
+        }
+
+        public double fitness() { return fitness; }
+        public MultiLayerPerceptron mlp() {return mlp; }
+
+        public int compareTo(FitnessToMLP o) {
+            return this.fitness.compareTo(o.fitness);
+        }
+    }
+
 
     /**
      * Tell all bags to breed
@@ -220,7 +270,6 @@ public abstract class CoSyNe extends SubGoalController {
      */
     protected double[] getOutput(double[] input){
 
-        //System.out.println("Input: " + Arrays.toString(input));
         mlp.setInput(input);
         mlp.calculate();
         return reLu(mlp.getOutput());

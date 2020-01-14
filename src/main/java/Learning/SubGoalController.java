@@ -22,12 +22,14 @@ public abstract class SubGoalController implements Serializable,RLController {
     protected static int nrAgents;
 
     private final int max_runs = 20;
+    protected int sizeFinalComparison = 10;
     protected int run=0;
     protected static int iter=0;
     private static int nrErrors = 0;
-    protected int iterations = 1000;
+    protected int trainingIterations = 500;
+    protected int testingIterations = 50;
     protected float explorationRate;
-    protected float exploreDiscount = explorationRate/iterations;
+    protected float exploreDiscount = explorationRate/ trainingIterations;
 
     protected OrthogonalSubGoals subGoals;
     protected Simulation model;
@@ -42,12 +44,12 @@ public abstract class SubGoalController implements Serializable,RLController {
     protected Agent backup; //If the final agent has died, the MLP still needs an agent to determine the inputVector of the MLP
 
     //Fields for functionality of navigation and fitness
-    protected String algorithm = "Dijkstra";
+    protected String algorithm = "Bresenham";
     protected Fitness fit;
     protected Features f;
     private int lowestCost;
-    private int[][] costArr;
-    private Random rand;
+    private double[][] costArrTraining;
+    private double[][] costArrTesting;
     private StopWatch watch;
 
     protected HashSet<String> assignedGoals;
@@ -83,7 +85,6 @@ public abstract class SubGoalController implements Serializable,RLController {
 
         f = new Features();
         fit = new Fitness();
-        rand = new Random();
         watch = new StopWatch();
 
 
@@ -92,7 +93,8 @@ public abstract class SubGoalController implements Serializable,RLController {
             run++;
             System.out.println("=====================STARTING RUN #" + run + "==================");
             lowestCost = Integer.MAX_VALUE;
-            costArr = new int[iterations][3];
+            costArrTraining = new double[trainingIterations][3];
+            costArrTesting = new double[testingIterations][3];
             randSeed = 0;
             explorationRate = 0.3f;
 
@@ -102,22 +104,18 @@ public abstract class SubGoalController implements Serializable,RLController {
 
             initRL();
 
-            for (iter = 0; iter < iterations; iter++) {
-                if (debugging) {
-                    System.out.println("Current iteration:" + iter + " <-------------------------------");
-                }
-                randSeed++;
-                showActionFor = timeActionShown;
-
-                resetSimulation();
-
-                train();
-                costArr[iter] = getCost();
-                if (explorationRate > 0) {
-                    explorationRate -= exploreDiscount;
-                }
+            for (iter = 0; iter < trainingIterations-sizeFinalComparison; iter++) {
+                runIteration(false, false);
             }
-
+            for ( ; iter < trainingIterations-1; iter++) {
+                runIteration(true, false);
+            }
+            runIteration(true, true);
+            for (int testIter = 0; testIter<testingIterations; testIter++){
+                randSeed++;
+                test();
+                costArrTesting[testIter]=getCost();
+            }
             watch.stop();
             writePerformanceFile();
 
@@ -125,6 +123,22 @@ public abstract class SubGoalController implements Serializable,RLController {
                 System.out.println("Total # of errors occurred: " + nrErrors);
             }
             watch.reset();
+        }
+    }
+
+    private void runIteration(boolean saveMLP, boolean finalIter){
+        if (debugging) {
+            System.out.println("Current iteration:" + iter + " <-------------------------------");
+        }
+        randSeed++;
+        showActionFor = timeActionShown;
+
+        resetSimulation();
+
+        train(saveMLP, finalIter);
+        costArrTraining[iter] = getCost(); //TODO: Fix for CoSyNE approach
+        if (explorationRate > 0) {
+            explorationRate -= exploreDiscount;
         }
     }
 
@@ -208,7 +222,6 @@ public abstract class SubGoalController implements Serializable,RLController {
             } else {
                 return  nextAction;
             }
-            // TODO: This piece of code is ugly as hell, come up with better solution
         } else { //Once all goals have been reached, the agent should stop moving as there is no use for it anymore.
             return "Do Nothing";
         }
@@ -261,40 +274,6 @@ public abstract class SubGoalController implements Serializable,RLController {
         if (use_gui && (debugging)) {
             subGoals.paintGoal(key);
         }
-    }
-
-    protected int[] getCost(){
-        int[] cost = fit.totalCosts(model);
-        if (debugging){
-            System.out.println("Total fuel burnt: " + fit.totalFuelBurnt(model) + ", Total moveCost: " + fit.totalMoveCost(model) + ", Total cost: " + (cost[0]+cost[1]+cost[2]));
-        }
-        return cost;
-    }
-
-    /**
-     * This is where to e-greedy search is implemented. The passed list is ordered according to activation in (1-e) of the cases
-     * In the other cases, a randomized list with replacement is returned.
-     * @param activation The activation according to which the list needs to be order that needs to ordered
-     * @return Ordered list
-     */
-    public List<IndexActLink> determineOrder(double[] activation){
-        List<IndexActLink> outputList = new LinkedList<>();
-
-        //For regular greedy-search, the index which had the lowest activation will be placed at the first location of list
-        for (int i = 0; i<activation.length; i++){
-            outputList.add(new IndexActLink(i, (float) activation[i]));
-        }
-
-        //For the e-part of the search, there is an (1-e) chance that all indexes are randomized. no need to order it afterwards
-        if (rand.nextFloat()<explorationRate){
-            for (int i = 0; i<activation.length; i++){
-                outputList.get(i).index=rand.nextInt(activation.length);
-            }
-        } else {
-            outputList.sort(Comparator.comparing(IndexActLink::getActivation, Comparator.nullsLast(Comparator.naturalOrder())));
-        }
-
-        return outputList;
     }
 
     protected void initSubGoalOrder(){ //TODO: If rand float< exploreRate -> make random dist array, otherwise use order of activations
@@ -421,8 +400,8 @@ public abstract class SubGoalController implements Serializable,RLController {
                 csvWriter.append("AgentDeathPenalty");
                 csvWriter.append("\n");
 
-                for (int i = 0; i< iterations; i++){
-                    csvWriter.append(i+","+costArr[i][0]+","+costArr[i][1]+","+costArr[i][2]+"\n");
+                for (int i = 0; i< testingIterations; i++){
+                    csvWriter.append(i+","+ costArrTesting[i][0]+","+ costArrTesting[i][1]+","+ costArrTesting[i][2]+"\n");
                 }
 
                 csvWriter.flush();
@@ -463,6 +442,26 @@ public abstract class SubGoalController implements Serializable,RLController {
         initSubGoalOrder();
     }
 
+
+    public List<IndexActLink> determineOrder(double[] activation){
+
+        List<IndexActLink> outputList = makeIndexActList(activation);
+
+        outputList.sort(Comparator.comparing(IndexActLink::getActivation, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        return outputList;
+    }
+
+    protected List<IndexActLink> makeIndexActList(double[] activation){
+        List<IndexActLink> outputList = new LinkedList<>();
+
+        for (int i = 0; i<activation.length; i++){
+            outputList.add(new IndexActLink(i, (float) activation[i]));
+        }
+
+        return outputList;
+    }
+
     private String dirGenerator(){
         return System.getProperty("user.dir") + "/results/" + RLMethod + "/" + algorithm + "/" + model.getNr_agents() + "_agent_environment";
     }
@@ -482,8 +481,8 @@ public abstract class SubGoalController implements Serializable,RLController {
 //                csvWriter.append("AgentDeathPenalty");
 //                csvWriter.append("\n");
 //
-//                for (int i = 0; i< iterations; i++){
-//                    csvWriter.append(i+","+costArr[i][0]+","+costArr[i][1]+","+costArr[i][2]+"\n");
+//                for (int i = 0; i< testingIterations; i++){
+//                    csvWriter.append(i+","+costArrTraining[i][0]+","+costArrTraining[i][1]+","+costArrTraining[i][2]+"\n");
 //                }
 //
 //                csvWriter.flush();
@@ -522,7 +521,11 @@ public abstract class SubGoalController implements Serializable,RLController {
 
     protected abstract double[] getOutput(double[] input);
 
-    protected abstract void train();
+    abstract protected double[] getCost();
+
+    protected abstract void train(boolean saveMLP, boolean finalIter);
+
+    protected abstract void test();
 
     protected abstract void initRL();
 
@@ -569,7 +572,7 @@ public abstract class SubGoalController implements Serializable,RLController {
     public class InputCost{
         private double[] stateX;
         private double[] stateXPrime;
-        private int cost;
+        private double cost;
 
         private InputCost(){}
 
@@ -581,7 +584,7 @@ public abstract class SubGoalController implements Serializable,RLController {
             this.stateXPrime = stateXPrime;
         }
 
-        public void setCost(int cost){
+        public void setCost(double cost){
             this.cost = cost;
         }
 
@@ -593,7 +596,7 @@ public abstract class SubGoalController implements Serializable,RLController {
             return stateXPrime;
         }
 
-        public int getCost() {
+        public double getCost() {
             return cost;
         }
     }
@@ -605,7 +608,7 @@ public abstract class SubGoalController implements Serializable,RLController {
         private int index;
         private float activation;
 
-        private IndexActLink(int i, float a){
+        public IndexActLink(int i, float a){
             index=i;
             activation=a;
         }
@@ -616,6 +619,10 @@ public abstract class SubGoalController implements Serializable,RLController {
 
         public int getIndex() {
             return index;
+        }
+
+        public void setIndex(int i){
+            index = i;
         }
     }
 

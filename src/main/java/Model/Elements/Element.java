@@ -42,7 +42,7 @@ import java.util.*;
  TL;DR:
  For radius 2, maximum 4 neighbours can give heat to one cell (maximum value = burn intensity)
  Ignition threshold is the temperature at which which it ignites
- Fuel is the num of iterations it can burn
+ Fuel is the num of testingIterations it can burn
 
  */
 

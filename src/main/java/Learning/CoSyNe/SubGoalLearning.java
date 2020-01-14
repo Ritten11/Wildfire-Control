@@ -14,9 +14,7 @@ import org.neuroph.util.TransferFunctionType;
 
 import javax.swing.*;
 import java.io.Serializable;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 import static java.lang.Double.NaN;
 
@@ -123,7 +121,7 @@ public class SubGoalLearning extends CoSyNe  {
 
     @Override
     protected int defN_generations() {
-        return 20;
+        return 1000;
     }
 
     /**
@@ -166,7 +164,7 @@ public class SubGoalLearning extends CoSyNe  {
 
     @Override
     protected double getFitness() {
-        int[] costArr = getCost();
+        int[] costArr = fit.totalCosts(model);
 
         return costArr[0]+costArr[1]+costArr[2];
     }

@@ -56,7 +56,7 @@ public class GoalLearner extends SubGoalLearning {
      * We cancel the train, since we don't iterate over generations
      */
     @Override
-    protected void train(){
+    protected void train(boolean x, boolean y){
         return;
     }
 }

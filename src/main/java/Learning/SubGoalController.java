@@ -26,8 +26,8 @@ public abstract class SubGoalController implements Serializable,RLController {
     protected int run=0;
     protected static int iter=0;
     private static int nrErrors = 0;
-    protected int trainingIterations = 500;
-    protected int testingIterations = 50;
+    protected int trainingIterations = 50;
+    protected int testingIterations = 10;
     protected float explorationRate;
     protected float exploreDiscount = explorationRate/ trainingIterations;
 
@@ -106,9 +106,11 @@ public abstract class SubGoalController implements Serializable,RLController {
 
             for (iter = 0; iter < trainingIterations-sizeFinalComparison; iter++) {
                 runIteration(false, false);
+                costArrTraining[iter] = getCost();
             }
             for ( ; iter < trainingIterations-1; iter++) {
                 runIteration(true, false);
+                costArrTraining[iter] = getCost();
             }
             runIteration(true, true);
             for (int testIter = 0; testIter<testingIterations; testIter++){
@@ -136,7 +138,6 @@ public abstract class SubGoalController implements Serializable,RLController {
         resetSimulation();
 
         train(saveMLP, finalIter);
-        costArrTraining[iter] = getCost(); //TODO: Fix for CoSyNE approach
         if (explorationRate > 0) {
             explorationRate -= exploreDiscount;
         }
@@ -259,20 +260,21 @@ public abstract class SubGoalController implements Serializable,RLController {
 
     public void setDistance(List<IndexActLink> activationList, String key) {
         int i = 0;
-           do {
-              subGoals.updateSubGoal(key, activationList.get(i).getIndex());
-              i++;
-              if (debugging){
-                  if (i>7){
-                      System.out.println("ACTIVATIONLIST > 7 : " + activationList.size());
-                  }
-              }
-              if (i>=activationList.size()){//TODO: Somehow reset the simulation
-//                  resetSimulation("All locations invalid");
-              }
+        if (defRLMethod().equals("CoSyNE")) {
+            subGoals.updateSubGoal(key, activationList.get(0).getActivation());
+        } else {
+            do {
+                subGoals.updateSubGoal(key, activationList.get(i).getIndex());
+                i++;
+                if (debugging) {
+                    if (i > 7) {
+                        System.out.println("ACTIVATIONLIST > 7 : " + activationList.size());
+                    }
+                }
             } while (!subGoals.checkSubGoal(key, model.getAgents()));
-        if (use_gui && (debugging)) {
-            subGoals.paintGoal(key);
+            if (use_gui && (debugging)) {
+                subGoals.paintGoal(key);
+            }
         }
     }
 
@@ -390,7 +392,7 @@ public abstract class SubGoalController implements Serializable,RLController {
         File file = new File(dir);
         if (file.mkdirs() || file.isDirectory()) {
             try {
-                FileWriter csvWriter = new FileWriter(dir + "/run_" + run + ".csv");
+                FileWriter csvWriter = new FileWriter(dir + "/testing_run_" + run + ".csv");
                 csvWriter.append("Iteration");
                 csvWriter.append(",");
                 csvWriter.append("BurnCost");
@@ -417,6 +419,27 @@ public abstract class SubGoalController implements Serializable,RLController {
                 writer.write(watch.getTime() + "");
                 writer.newLine();   //Add new line
                 writer.close();
+            } catch (IOException e) {
+                System.out.println("Some IO-exception occurred");
+                e.printStackTrace();
+            }
+            try {
+                FileWriter csvWriter = new FileWriter(dir + "/training_run_" + run + ".csv");
+                csvWriter.append("Iteration");
+                csvWriter.append(",");
+                csvWriter.append("BurnCost");
+                csvWriter.append(",");
+                csvWriter.append("MoveCost");
+                csvWriter.append(",");
+                csvWriter.append("AgentDeathPenalty");
+                csvWriter.append("\n");
+
+                for (int i = 0; i< trainingIterations; i++){
+                    csvWriter.append(i+","+ costArrTraining[i][0]+","+ costArrTraining[i][1]+","+ costArrTraining[i][2]+"\n");
+                }
+
+                csvWriter.flush();
+                csvWriter.close();
             } catch (IOException e) {
                 System.out.println("Some IO-exception occurred");
                 e.printStackTrace();

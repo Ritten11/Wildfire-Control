@@ -37,7 +37,7 @@ public class Main {
 		} else if (args.length > 0 && args[0].equals("CQL")){
             new DeepQLearner(1);
         } else if (args.length > 0 && args[0].equals("CoSyNe_SubGoals")){
-            new SubGoalLearning(1);
+            new SubGoalLearning(8);
         }else if (args.length == 1 && args[0].equals("human")) {
 			HumanController hc = new HumanController();
 			Simulation s = new Simulation(hc, 1);

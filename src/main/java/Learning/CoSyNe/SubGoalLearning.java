@@ -101,7 +101,7 @@ public class SubGoalLearning extends CoSyNe  {
         }
     }
 
-    protected String defRLMethod() {return "CoSyNe";}
+    protected String defRLMethod() {return "CoSyNE";}
 
     @Override
     protected void resetSimulation() {
@@ -139,7 +139,7 @@ public class SubGoalLearning extends CoSyNe  {
      */
     @Override
     protected int defN_outputs() {
-        return outputNeurons;
+        return 1;
     }
 
     @Override

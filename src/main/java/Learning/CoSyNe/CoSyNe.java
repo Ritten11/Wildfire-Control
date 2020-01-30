@@ -43,10 +43,7 @@ public abstract class CoSyNe extends SubGoalController {
         savedMLPList = new ArrayList<>();
         costs = new double[3];
 
-        double[] fire=f.locationCenterFireAndMinMax(model);
-        int minY=(int)Math.min(fire[1], (model.getAllCells().get(0).size()-fire[1]));
-        int minX=(int)Math.min(fire[0], (model.getAllCells().size()-fire[0]));
-        outputNeurons = Math.min(minX,minY);
+        outputNeurons = 1;
 
         MLP_shape.add(getInputSet("WW", model.getAgents().get(0)).length);
         for(int i = 0; i < defHiddenLayers().length; i++){
@@ -62,6 +59,7 @@ public abstract class CoSyNe extends SubGoalController {
      */
     protected void train(boolean saveMLP, boolean finalIter){ //Implement generations
         mean_perfomance = 0;
+        costs = new double[3];
         for(int test = 0; test < defGenerationSize(); test++){
 
             resetSimulation();
@@ -70,6 +68,11 @@ public abstract class CoSyNe extends SubGoalController {
 
             testMLP();
 
+            int[] modelCosts = fit.totalCosts(model);
+            costs[0] += modelCosts[0];
+            costs[1] += modelCosts[1];
+            costs[2] += modelCosts[2];
+
             if (finalIter){
                 savedMLPList.add(new FitnessToMLP(getFitness(), mlp));
             }
@@ -77,6 +80,10 @@ public abstract class CoSyNe extends SubGoalController {
         if (finalIter) {
             Collections.sort(savedMLPList);
         }
+        costs[0] /= defGenerationSize();
+        costs[1] /= defGenerationSize();
+        costs[2] /= defGenerationSize();
+
         mean_perfomance /= defGenerationSize();
         printPerformance();
         best_performance = null;
@@ -272,7 +279,9 @@ public abstract class CoSyNe extends SubGoalController {
 
         mlp.setInput(input);
         mlp.calculate();
-        return reLu(mlp.getOutput());
+        double[] output = mlp.getOutput();
+        double[] newOutput = {output[0]*4.5+4.5};
+        return newOutput;
     }
 
     /**

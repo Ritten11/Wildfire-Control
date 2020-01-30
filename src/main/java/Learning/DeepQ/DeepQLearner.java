@@ -18,7 +18,6 @@ import java.util.List;
  * Not the function of this class: subgoal management.
  */
 public class DeepQLearner extends SubGoalController implements Serializable {
-    protected float gamma = 0.1f;
     protected float alpha = 0.001f;
 
 
@@ -60,6 +59,7 @@ public class DeepQLearner extends SubGoalController implements Serializable {
 
     protected void train(boolean saveMLP, boolean finalIter){
         JFrame frame;
+        costs = new double[3];
         if(use_gui){
             frame = createMainFrame();
         }
@@ -74,6 +74,9 @@ public class DeepQLearner extends SubGoalController implements Serializable {
         }
         int[] costArr = fit.totalCosts(model);
         double cost = costArr[0] + costArr[1] + costArr[2];
+        costs[0] = costArr[0];
+        costs[1] = costArr[1];
+        costs[2] = costArr[2];
         for (InputCost inputCost:getGoalToCostMap().values()){
             inputCost.setCost(cost);
         }
@@ -114,9 +117,9 @@ public class DeepQLearner extends SubGoalController implements Serializable {
     private void train(double[] oldState, double[] newState, int action, double reward){
 
         double[] oldValue = getQ(oldState);
-        double[] newValue = getQ(newState);
 
-        oldValue[action] = reward + gamma* minValue(newValue);
+
+        oldValue[action] = reward;
 
         double[] trainInput = oldState;
         double[] trainOutput = oldValue;
@@ -201,11 +204,10 @@ public class DeepQLearner extends SubGoalController implements Serializable {
         int minY=(int)Math.min(fire[1], (model.getAllCells().get(0).size()-fire[1]));
         int minX=(int)Math.min(fire[0], (model.getAllCells().size()-fire[0]));
         sizeOutput = Math.min(minX,minY);
-        sizeHidden = 15;
+        sizeHidden = 30;
         sizeInput = getInputSet("WW", model.getAgents().get(0)).length;
 
-        gamma = 0.1f;
-        alpha = 0.001f;
+        alpha = 0.05f;
 
         batchSize = 1;
         inputBatch = new double[batchSize][sizeInput];

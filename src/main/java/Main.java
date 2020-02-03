@@ -7,6 +7,7 @@ import Learning.CoSyNe.SubSyne;
 import Learning.DeepQ.DeepQLearner;
 import Learning.GA;
 import Learning.HumanController;
+import Learning.RandomWalk;
 import Model.Simulation;
 import View.MainFrame;
 import org.apache.commons.lang3.time.StopWatch;
@@ -32,13 +33,15 @@ public class Main {
 		}  else if (args.length == 1 && args[0].equals("BURLAP")) {
 			BURLAP test = new BURLAP();
 			test.example();
-		}else if (args.length == 1 && args[0].equals("HRL")){
+		} else if (args.length == 1 && args[0].equals("HRL")){
 			new ActionLearner();
 		} else if (args.length > 0 && args[0].equals("CQL")){
             new DeepQLearner(1);
         } else if (args.length > 0 && args[0].equals("CoSyNe_SubGoals")){
             new SubGoalLearning(8);
-        }else if (args.length == 1 && args[0].equals("human")) {
+        } else if (args.length > 0 && args[0].equals("Random_Walk")){
+			new RandomWalk(1);
+		} else if (args.length == 1 && args[0].equals("human")) {
 			HumanController hc = new HumanController();
 			Simulation s = new Simulation(hc, 1);
 			hc.setModel(s);

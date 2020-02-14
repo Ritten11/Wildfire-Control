@@ -270,36 +270,16 @@ public abstract class CoSyNe extends SubGoalController {
 //        conf_counter++;
 //    }
 
-    /**
-     * Get the output from the MLP and uses a ReLu function to get rid of negative numbers
-     * @param input
-     * @return
-     */
+
     protected double[] getOutput(double[] input){
 
         mlp.setInput(input);
         mlp.calculate();
         double[] output = mlp.getOutput();
-        double[] newOutput = {output[0]*4.5+4.5};
+        double[] newOutput = {output[0]*10};
         return newOutput;
     }
 
-    /**
-     * Makes every negative enrty equal to 0, does nothing in all other cases
-     * @param a
-     * @return
-     */
-    public static double[] reLu(double[] a){
-        int m = a.length;
-        double[] z = new double[m];
-
-        for (int i = 0; i < m; i++) {
-            z[i] = (a[i]>0?a[i]:0);
-            //System.out.println("in = " + a[i] + " -> out = " + z[i]);
-        }
-
-        return z;
-    }
 
     /**
      * Define how an action i should be performed

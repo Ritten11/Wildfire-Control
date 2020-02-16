@@ -18,7 +18,7 @@ public class CircleSyNe extends CoSyNe implements Serializable {
 
     public CircleSyNe(){
         super();
-        train();
+        train(false, false);
     }
 
     @Override

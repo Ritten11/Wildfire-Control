@@ -5,6 +5,7 @@ import Learning.SubGoalController;
 import Model.Agent;
 import Model.Simulation;
 import View.MainFrame;
+import org.apache.commons.lang3.SerializationUtils;
 
 import javax.swing.*;
 import java.io.*;
@@ -17,7 +18,6 @@ import java.util.List;
  * Not the function of this class: subgoal management.
  */
 public class DeepQLearner extends SubGoalController implements Serializable {
-    protected float gamma = 0.1f;
     protected float alpha = 0.001f;
 
 
@@ -25,7 +25,7 @@ public class DeepQLearner extends SubGoalController implements Serializable {
     private int sizeInput;
     private int sizeOutput;
     private int nrHidden; //TODO: create compatibility for dynamic number of hidden layers
-    private int sizeHidden = 50;
+    private int sizeHidden;
     private int batchSize = 1;
 
     private int batchNr;
@@ -47,38 +47,36 @@ public class DeepQLearner extends SubGoalController implements Serializable {
      */
 
     //Fields for functionality of navigation and fitness
-    private int lowestCost;
-    private int[][] costArr;
+    private double lowestCost;
+    private double[] costs;
+
+    private List<MLP> savedMLPList;
 
 
     public DeepQLearner(int nrAgents){
         super(nrAgents);
     }
 
-    protected void train(){
-//        assignedGoals = new HashSet<>();
-
-//        double fireLocation[] = f.locationCenterFireAndMinMax(model);
-//        subGoals = new OrthogonalSubGoals((int)fireLocation[0],(int)fireLocation[1], distMap, algorithm, model.getAllCells());
-
+    protected void train(boolean saveMLP, boolean finalIter){
         JFrame frame;
+        costs = new double[3];
         if(use_gui){
             frame = createMainFrame();
         }
 
         if ((debugging)&&use_gui){
-            //model.applyUpdates();
             sleep(500);
-            //SGC.screenshot(run, iter);
         }
 
         model.start();
         if (debugging){
             printFinalDistMap();
-           // printGoalToCoastMap();
         }
-        int[] costArr = getCost();
-        int cost = costArr[0] + costArr[1] + costArr[2];
+        int[] costArr = fit.totalCosts(model);
+        double cost = costArr[0] + costArr[1] + costArr[2];
+        costs[0] = costArr[0];
+        costs[1] = costArr[1];
+        costs[2] = costArr[2];
         for (InputCost inputCost:getGoalToCostMap().values()){
             inputCost.setCost(cost);
         }
@@ -106,18 +104,22 @@ public class DeepQLearner extends SubGoalController implements Serializable {
 
         }
 
+        if (saveMLP){
+            savedMLPList.add(deepCopyMLP(mlp));
+        }
+
         if (use_gui){
             disposeMainFrame(frame);
         }
     }
 
 
-    private void train(double[] oldState, double[] newState, int action, int reward){
+    private void train(double[] oldState, double[] newState, int action, double reward){
 
         double[] oldValue = getQ(oldState);
-        double[] newValue = getQ(newState);
 
-        oldValue[action] = reward + gamma* minValue(newValue);
+
+        oldValue[action] = reward;
 
         double[] trainInput = oldState;
         double[] trainOutput = oldValue;
@@ -139,6 +141,25 @@ public class DeepQLearner extends SubGoalController implements Serializable {
             oldValue = getQ(oldState);
             System.out.println(Arrays.toString(oldState) + " -> " + Arrays.toString(oldValue));
         }
+    }
+
+    public void test(){
+        costs = new double[3];
+        for(int i = 0; i < sizeFinalComparison; i++){
+            resetSimulation();
+            mlp = savedMLPList.get(i);
+            model.start();
+
+            int[] modelCosts = fit.totalCosts(model);
+            costs[0] += modelCosts[0];
+            costs[1] += modelCosts[1];
+            costs[2] += modelCosts[2];
+
+        }
+
+        costs[0] /= sizeFinalComparison;
+        costs[1] /= sizeFinalComparison;
+        costs[2] /= sizeFinalComparison;
     }
 
 //    @Override
@@ -172,16 +193,21 @@ public class DeepQLearner extends SubGoalController implements Serializable {
         resetSubGoals();
     }
 
+    private MLP deepCopyMLP(MLP mlp) {
+        return  (MLP) SerializationUtils.clone(mlp);
+    }
+
     protected void initRL(){
+        savedMLPList = new ArrayList<>();
+
         double[] fire=f.locationCenterFireAndMinMax(model);
         int minY=(int)Math.min(fire[1], (model.getAllCells().get(0).size()-fire[1]));
         int minX=(int)Math.min(fire[0], (model.getAllCells().size()-fire[0]));
         sizeOutput = Math.min(minX,minY);
-        sizeHidden = 50;
+        sizeHidden = 30;
         sizeInput = getInputSet("WW", model.getAgents().get(0)).length;
 
-        gamma = 0.1f;
-        alpha = 0.001f;
+        alpha = 0.05f;
 
         batchSize = 1;
         inputBatch = new double[batchSize][sizeInput];
@@ -234,6 +260,37 @@ public class DeepQLearner extends SubGoalController implements Serializable {
 
     protected double[] getOutput(double[] input){
         return getQ(input);
+    }
+
+    protected double[] getCost(){
+        return costs;
+    }
+
+
+    /**
+     * This is where to e-greedy search is implemented. The passed list is ordered according to activation in (1-e) of the cases
+     * In the other cases, a randomized list with replacement is returned.
+     * @param activation The activation according to which the list needs to be order that needs to ordered
+     * @return Ordered list
+     */
+    @Override
+    public List<IndexActLink> determineOrder(double[] activation){
+
+        Random rand = new Random();
+
+        //For regular greedy-search, the index which had the lowest activation will be placed at the first location of list
+        List<IndexActLink> outputList = makeIndexActList(activation);
+
+        //For the e-part of the search, there is an (e) chance that all indexes are randomized. no need to order it afterwards
+        if (rand.nextFloat()<explorationRate){
+            for (int i = 0; i<activation.length; i++){
+                outputList.get(i).setIndex(rand.nextInt(activation.length));
+            }
+        } else {
+            outputList.sort(Comparator.comparing(IndexActLink::getActivation, Comparator.nullsLast(Comparator.naturalOrder())));
+        }
+
+        return outputList;
     }
 
     private void addToInputBatch(double in[]){

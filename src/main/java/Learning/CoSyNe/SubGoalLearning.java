@@ -25,25 +25,8 @@ import static java.lang.Double.NaN;
 public class SubGoalLearning extends CoSyNe  {
     public SubGoalLearning(int nrAgents){
         super(nrAgents);
-        //model = new Simulation(false);  //Not Simulation(this), since we don't pick the individual moves
-        //train();
     }
-//
-//    protected void initSubGoalOrder(){ //TODO: If rand float< exploreRate -> make random dist array, otherwise use order of activations
-//        for (Agent a:model.getAgents()){
-//            HashMap<String, List<SubGoalController.IndexActLink>> activationMap = new HashMap<>();
-//            for (String s:subGoalKeys){
-//                mlp.setInput(getInput(s, a));
-//                mlp.calculate();
-//                double[] outputSet = mlp.getOutput();
-//                List<SubGoalController.IndexActLink> outputList = determineOrder(outputSet);
-//
-//                activationMap.put(s, outputList);
-//            }
-//            subGoalActivation.put(a, activationMap);
-//        }
-//        updateDistMap(subGoalActivation);
-//    }
+
 
     /**
      * The original testMLP assume that this is the RL controller, but that's not the case.

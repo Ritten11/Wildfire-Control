@@ -33,20 +33,6 @@ public class DeepQLearner extends SubGoalController implements Serializable {
     private double outputBatch[][];
 
     protected MLP mlp;
-
-    //Variables needed for debugging:
-    /* IF RANDOM SEED IN SIMULATION CLASS == 0
-     0 -> d=0
-     1 -> d=5
-     2 -> d=0
-     3 -> d=4
-     4 -> d=8
-     5 -> d=2 (if the fire is sufficiently far away)
-     6 -> d=5
-     6 -> d=6
-     */
-
-    //Fields for functionality of navigation and fitness
     private double lowestCost;
     private double[] costs;
 
@@ -57,6 +43,13 @@ public class DeepQLearner extends SubGoalController implements Serializable {
         super(nrAgents);
     }
 
+    /**
+     * The main training function which starts the simulation and determines the total costs afterwards. It
+     * initialises the back-propagation of the total costs through the MLP and, if necessary, makes a deep copy of
+     * the MLP to use in the testing-phase
+     * @param saveMLP   - boolean stating whether or not to save the MLP (only used in CMC implementation)
+     * @param finalIter - boolean stating whether or not to save the MLP (only used in CoSyNE implementation)
+     */
     protected void train(boolean saveMLP, boolean finalIter){
         JFrame frame;
         costs = new double[3];
@@ -114,6 +107,13 @@ public class DeepQLearner extends SubGoalController implements Serializable {
     }
 
 
+    /**
+     * Method for updating the MLP through back-propagation
+     * @param oldState - The state at which the action is taken
+     * @param newState - The resulting state once an action has finished (not used).
+     * @param action   - The action taken in "oldState"
+     * @param reward   - The reward (or return) value resulting form taking the action in "oldState".
+     */
     private void train(double[] oldState, double[] newState, int action, double reward){
 
         double[] oldValue = getQ(oldState);
@@ -143,6 +143,10 @@ public class DeepQLearner extends SubGoalController implements Serializable {
         }
     }
 
+    /**
+     * method for testing the MLP on the same map for a set amount of iterations (sizeFinalComparison). The sum of
+     * the results is stored in the costs array and eventually averaged by dividing of the total number of iterations
+     */
     public void test(){
         costs = new double[3];
         for(int i = 0; i < sizeFinalComparison; i++){
@@ -162,41 +166,27 @@ public class DeepQLearner extends SubGoalController implements Serializable {
         costs[2] /= sizeFinalComparison;
     }
 
-//    @Override
-//    public void pickAction(Agent a) {
-//        String action = getNextAction(a);
-//        if (action.equals("Update sub-goal")){
-//            String nextGoal = getNextGoal(a);
-//            double[] activation = getQ(getInputSet(nextGoal,a));
-//            updateDistMap(nextGoal, a, determineOrder(activation, explorationRate));
-//            setNextGoal(a);
-//            action = getNextAction(a);
-//        }
-//        a.takeAction(action);
-//        if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
-//            removeGoalReached(a);
-//            backup = a;
-//            if (debugging) {
-//                System.out.println("Nr of Agents: " + model.getAgents().size());
-//            }
-//        }
-//        if (use_gui) {
-//            if (showActionFor > 0) {
-//                sleep(showActionFor);
-//                showActionFor -= 1;
-//            }
-//        }
-//    }
+    /**
+     * In some occasions, the simulation needs to be reset to the rest.
+     */
     @Override
     protected void resetSimulation(){
         model = new Simulation(this,use_gui,randSeed, nrAgents);
         resetSubGoals();
     }
 
+    /**
+     * Returns a deep copy of the given MLP
+     * @param mlp - The MLP to be copied
+     * @return copy of the MLP
+     */
     private MLP deepCopyMLP(MLP mlp) {
         return  (MLP) SerializationUtils.clone(mlp);
     }
 
+    /**
+     * Initialises and MLP with 30 hidden units in a single layer.
+     */
     protected void initRL(){
         savedMLPList = new ArrayList<>();
 
@@ -215,34 +205,12 @@ public class DeepQLearner extends SubGoalController implements Serializable {
 
         mlp = new MLP(sizeInput, sizeHidden, sizeOutput, alpha, batchSize, new Random().nextLong());
     }
-//
-//    protected int boltzmannDistAct(List<IndexActLink> activationList){
-//        double sum = 0;
-//        for (IndexActLink ial:activationList){
-//            sum += Math.exp(1/(explorationRate*ial.activation));
-//        }
-//        if (debugging){
-//            for (IndexActLink ial:activationList){
-//                System.out.println("Sum: " + sum + " -> index #" + ial.index + " has prob of: " + Math.exp(1/(explorationRate*ial.activation))/sum);
-//            }
-//        }
-//        if (Double.isInfinite(sum)){
-//            sum = Double.MAX_VALUE;
-//            System.out.println("infinite value");
-//        }
-//        double randDouble = rand.nextDouble();
-//        double randActionSum = Math.exp(1/(explorationRate*activationList.get(0).activation))/sum;
-//        int i = 0;
-//        while (randDouble>randActionSum){
-//            i++;
-//            randActionSum+= Math.exp(1/(explorationRate*activationList.get(0).activation))/sum;
-//        }
-//        if (debugging){
-//            System.out.println("Returning " + activationList.get(i).index + " as randDouble = " + randDouble + " and randActionsum  = " + randActionSum);
-//        }
-//        return activationList.get(i).index;
-//    }
 
+    /**
+     * Receives the feature vector, runs this through the MLP and returns the resulting q-values.
+     * @param in -feature vector
+     * @return - resulting q-values
+     */
     private double[] getQ(double[] in){
 
         double input[][] = new double[1][in.length];
@@ -328,58 +296,4 @@ public class DeepQLearner extends SubGoalController implements Serializable {
         sleep(500);
         f.dispose();
     }
-//
-//    private void updateGoalsHit(Agent agent){
-//        if (agent.isCutting()){
-//            model.goalsHit++;
-//            goalToCostMap.get(subGoals.getAgentGoals().get(agent)).setStateXPrime(getInputSet(subGoals.getNextGoal(agent),agent));
-//        }
-//        if (debugging){
-//            System.out.println("# of goals hit: " + model.goalsHit);
-//        }
-//    }
-//
-//    private void resetSimulation(String error){
-//        System.out.println("UNEXPECTED ERROR: (" + error + ") OCCURRED, DISCARDING CURRENT MODEL AND STARTING NEW");
-//        nrErrors++;
-//        System.out.println("Distance Map: " + Collections.singletonList(distMap));
-//        takeScreenShot();
-//        train();
-//    }
-
-//
-//    private void printGoalToCoastMap(){
-//        for (String s:goalToCostMap.keySet()){
-//            System.out.println("Result for goal " + s + ": " + goalToCostMap.get(s).toString());
-//        }
-//    }
-//
-//    public class InputCost{
-//        double[] stateX;
-//        double[] stateXPrime;
-//        int cost;
-//
-//        private InputCost(){}
-//
-//        public void setStateX(double[] stateX){
-//            this.stateX = stateX;
-//        }
-//
-//        public void setStateXPrime(double[] stateXPrime) {
-//            this.stateXPrime = stateXPrime;
-//        }
-//
-//        private void setCost(int cost){
-//            this.cost = cost;
-//        }
-//
-//        @Override
-//        public String toString() {
-//            return "InputCost{" +
-//                    "stateX=" + Arrays.toString(stateX) +
-//                    ", stateXPrime=" + Arrays.toString(stateXPrime) +
-//                    ", cost=" + cost +
-//                    '}';
-//        }
-//    }
 }

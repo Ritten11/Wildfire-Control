@@ -15,6 +15,15 @@ public class MLP implements Serializable {
 
     private Random random;
 
+    /**
+     * Initialises the architecture of the MLP
+     * @param inputNr   - number of input features
+     * @param hiddenNr  - number of hidden units
+     * @param outputNr  - number of output units
+     * @param alpha     - learning rate
+     * @param batchSize - batchsize (is always 1)
+     * @param randSeed  - a seed required for debugging
+     */
     public MLP(int inputNr, int hiddenNr, int outputNr, double alpha, int batchSize, long randSeed) {
         random = new Random(randSeed);
         np.setSeed(randSeed);
@@ -28,11 +37,18 @@ public class MLP implements Serializable {
         this.batchSize = batchSize;
     }
 
+    /**
+     * The feed forward and back-propagation implementation
+     * @param in    - the state representation at the time an action is taken
+     * @param out   - the return values of having taken an action (only the return value for that actual action taken
+     *              has changed)
+     */
     public void updateMLP(double in[][], double out[][]){
 
         double input[][] = np.T(in);
         double output[][] = np.T(out);
 
+        //Some statements required to make sure the in- and output have the desired dimensions.
         if (input.length!=inputHiddenWeights[0].length){
             System.out.println("Incorrect input-array size input.length: " + input.length + " input[0].length: " + input[0].length + " inputHiddenWeights.length: " + inputHiddenWeights.length + " inputHiddenWeights[0].length: " + inputHiddenWeights[0].length);
             System.out.println("Input matrix");
@@ -94,6 +110,11 @@ public class MLP implements Serializable {
         np.printMatrix(A2);
     }
 
+    /**
+     * Simple feed forward implementation for the MLP
+     * @param in    - the input vector
+     * @return      - the output of the MLP given the input vector
+     */
     public double[][] getOutput(double in[][]){
 
         //printWheights();

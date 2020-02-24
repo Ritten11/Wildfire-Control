@@ -78,6 +78,10 @@ public abstract class SubGoalController implements Serializable,RLController {
             new AbstractMap.SimpleEntry<>("NW", new InputCost()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+    /**
+     *
+     * @param nrAgents
+     */
     public SubGoalController(int nrAgents){
 
         RLMethod = defRLMethod();
@@ -177,35 +181,6 @@ public abstract class SubGoalController implements Serializable,RLController {
         }
     }
 
-//    public void takeNextAction(Agent a) {
-//        if (model.goalsHit<distMap.keySet().size()) {
-//            if (a.onGoal()) {
-//                assignedGoals.add(subGoals.getAgentGoals().get(a));
-//                updateGoalsHit(a);
-//                updateDistMap(subGoals.getNextGoal(a), a);
-//                subGoals.setNextGoal(a);
-//            }
-//            String nextAction = a.subGoal.getNextAction();
-//            if (nextAction.equals("PathFailed")){
-//                subGoals.resetGoal(a);
-//                takeNextAction(a);
-//                return;
-//            } else {
-//                a.takeAction(nextAction);
-//            }
-//            // TODO: This piece of code is ugly as hell, come up with better solution
-//            if (model.getAllCells().get(a.getX()).get(a.getY()).isBurning()) {
-//                subGoals.removeGoalReached(a);
-//                backup = a;
-//                if (debugging) {
-//                    System.out.println("Nr of Agents: " + model.getAgents().size());
-//                }
-//            }
-//        } else { //Once all goals have been reached, the agent should stop moving as there is no use for it anymore.
-//            a.takeAction("Do Nothing");
-//        }
-//    }
-
     public String getNextAction(Agent a){
         if (model.goalsHit<distMap.keySet().size()) {
             if (a.onGoal()) {
@@ -303,20 +278,6 @@ public abstract class SubGoalController implements Serializable,RLController {
             System.out.println("# of goals hit: " + model.goalsHit);
         }
     }
-
-
-
-    /**
-     * Transform state to input vector.
-     * @param subGoal: expressed as an integer to allow for use of for loops.
-     * @return
-     */
-//    private double[] getInputSet(int subGoal){
-//        float windX = model.getParameters().get("Wind x");
-//        float windY = model.getParameters().get("Wind y");
-//        double[] set = f.appendArrays(f.cornerVectors(model, false), f.windRelativeToSubgoal(windX, windY, indexMap.get(subGoal)));
-//        return set;
-//    }
 
     protected double[] getInputSet(String subGoal, Agent a){
         return f.getInputSet(model, a, subGoal);
@@ -489,36 +450,6 @@ public abstract class SubGoalController implements Serializable,RLController {
         return System.getProperty("user.dir") + "/results/" + RLMethod + "/" + algorithm + "/" + model.getNr_agents() + "_agent_environment";
     }
 
-//    private void writePerformanceFile(){
-//        String dir = dirGenerator();
-//        File file = new File(dir);
-//        if (file.mkdirs() || file.isDirectory()) {
-//            try {
-//                FileWriter csvWriter = new FileWriter(dir + "/run" + run + ".csv");
-//                csvWriter.append("Iteration");
-//                csvWriter.append(",");
-//                csvWriter.append("BurnCost");
-//                csvWriter.append(",");
-//                csvWriter.append("MoveCost");
-//                csvWriter.append(",");
-//                csvWriter.append("AgentDeathPenalty");
-//                csvWriter.append("\n");
-//
-//                for (int i = 0; i< testingIterations; i++){
-//                    csvWriter.append(i+","+costArrTraining[i][0]+","+costArrTraining[i][1]+","+costArrTraining[i][2]+"\n");
-//                }
-//
-//                csvWriter.flush();
-//                csvWriter.close();
-//            } catch (IOException e) {
-//                System.out.println("Some IO-exception occurred");
-//                e.printStackTrace();
-//            }
-//        } else {
-//            System.out.println("Unable to make directory");
-//        }
-//    }
-//
     public void printFinalDistMap(){
         System.out.println("Final distance Map: " + Collections.singletonList(distMap));
         System.out.println("Final number of sub goals assigned: " + goalToCostMap.keySet().size());
@@ -570,28 +501,6 @@ public abstract class SubGoalController implements Serializable,RLController {
         return goalToCostMap;
     }
 
-    //
-//    /**
-//     * Class needed to order a list containing the index of the distance and the activation of that distance.
-//     */
-//    public class IndexActLink{
-//        private int index;
-//        private float activation;
-//
-//        private IndexActLink(int i, float a){
-//            index=i;
-//            activation=a;
-//        }
-//
-//        private double getActivation() {
-//            return activation;
-//        }
-//
-//        public int getIndex() {
-//            return index;
-//        }
-//    }
-//
     public class InputCost{
         private double[] stateX;
         private double[] stateXPrime;
